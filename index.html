@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="hu"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTC elemző">
+<meta name="theme-color" content="#0e1520">
+<title>BTC elemző</title>
+<link rel="apple-touch-icon" id="ic">
+<style>
+:root{--bg:#0e1520;--s:#172131;--l:#25324a;--t:#e8edf5;--m:#8a98b0;--up:#3fb68b;--dn:#e5645f;--a:#f2a93b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 -apple-system,system-ui,sans-serif;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px);max-width:560px;margin:auto}
+.px{font-size:42px;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.ob{font-size:18px;font-weight:600;margin:2px 0 10px}
+.tr{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--dn),var(--l) 50%,var(--up));margin:6px 0 10px}
+.tr i{position:absolute;top:-5px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--t);border:3px solid var(--bg)}
+.m{color:var(--m);font-size:13px}
+h2{font-size:17px;margin:24px 0 8px}
+.card{background:var(--s);border:1px solid var(--l);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.h b{font-size:17px}
+.r{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid var(--l)}
+.r span{color:var(--m)}.r b{font-weight:500;text-align:right}
+.sub{color:var(--m);font-size:13px;margin:4px 0 2px}
+.now{text-align:center;font-weight:600;padding:6px 0;margin:4px 0;border-top:1px dashed var(--a);border-bottom:1px dashed var(--a);color:var(--a)}
+.up,.r.up span{color:var(--up)}.dn,.r.dn span{color:var(--dn)}.nu{color:var(--a)}
+button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--a);color:#1a1205;font:600 16px inherit;font-family:inherit}
+button:disabled{opacity:.5}
+#ao{white-space:pre-wrap;margin-top:10px}
+details{margin-top:18px}summary{color:var(--m)}
+input{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid var(--l);background:var(--s);color:var(--t);font-size:16px}
+details button{background:var(--l);color:var(--t)}
+</style></head><body>
+<header><div id="px" class="px">–</div><div id="ob" class="ob">Betöltés…</div><div class="tr"><i id="mk"></i></div><div id="st" class="m"></div></header>
+<h2>Időtávok</h2><div id="tf"></div>
+<h2>Támasz és ellenállás</h2><div id="zn"></div>
+<h2>AI elemzés</h2><button id="ab">Elemzés kérése</button><div id="ao" class="card" hidden></div>
+<details><summary>Beállítások</summary>
+<input id="gk" type="password" placeholder="Gemini API kulcs" autocomplete="off">
+<input id="gm" placeholder="Gemini modell (alap: gemini-2.5-flash)">
+<button id="sv">Mentés</button></details>
+<p class="m">Az adatok a Kraken publikus API-jából jönnek. Valószínűségi értékelés, nem pénzügyi tanács.</p>
+<script>
+const $=s=>document.querySelector(s);
+const ls={g:k=>{try{return localStorage.getItem(k)}catch(e){return null}},s:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const TF=[[15,'15p',1],[60,'1ó',2],[240,'4ó',3],[1440,'1n',3]];
+const S={};
+const fmt=n=>Math.round(n).toLocaleString('hu-HU');
+function ema(a,n){const k=2/(n+1);let e=a[0];return a.map((v,i)=>i?(e=v*k+e*(1-k)):e)}
+function rsi(c,n=14){const r=Array(c.length).fill(null);if(c.length<=n)return r;let g=0,l=0;for(let i=1;i<=n;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=n;l/=n;r[n]=100-100/(1+g/(l||1e-9));for(let i=n+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(n-1)+Math.max(d,0))/n;l=(l*(n-1)+Math.max(-d,0))/n;r[i]=100-100/(1+g/(l||1e-9))}return r}
+function stoch(r,n=14){return r.map((v,i)=>{if(v==null||i<2*n-1)return null;const w=r.slice(i-n+1,i+1);if(w.some(x=>x==null))return null;const lo=Math.min(...w),hi=Math.max(...w);return hi==lo?50:(v-lo)/(hi-lo)*100})}
+const smooth=(a,n)=>a.map((v,i)=>{if(v==null||i<n-1)return null;const w=a.slice(i-n+1,i+1);return w.every(x=>x!=null)?w.reduce((p,q)=>p+q)/n:null});
+function piv(x,k,hi){const o=[];for(let i=k;i<x.length-k;i++){let ok=true;for(let j=1;j<=k;j++){if(hi?(x[i].h<=x[i-j].h||x[i].h<=x[i+j].h):(x[i].l>=x[i-j].l||x[i].l>=x[i+j].l)){ok=false;break}}if(ok)o.push(i)}return o}
+function div(cd,R){const n=cd.length,o=[];const ph=piv(cd,3,1).filter(i=>i>n-90),pl=piv(cd,3,0).filter(i=>i>n-90);
+if(ph.length>=2){const a=ph.at(-2),b=ph.at(-1);if(n-b<=25&&cd[b].h>cd[a].h&&R[a]!=null&&R[b]<R[a])o.push('bearish')}
+if(pl.length>=2){const a=pl.at(-2),b=pl.at(-1);if(n-b<=25&&cd[b].l<cd[a].l&&R[a]!=null&&R[b]>R[a])o.push('bullish')}
+return o}
+function fvg(cd){const o=[];for(let i=2;i<cd.length;i++){const a=cd[i-2],c=cd[i];let g=null;
+if(c.l>a.h)g={t:'bull',lo:a.h,hi:c.l};else if(c.h<a.l)g={t:'bear',lo:c.h,hi:a.l};
+if(!g||(g.hi-g.lo)/g.lo<.0005)continue;
+let f=false;for(let j=i+1;j<cd.length;j++){if(g.t=='bull'?cd[j].l<=g.lo:cd[j].h>=g.hi){f=true;break}}
+if(!f)o.push(g)}return o}
+function analyze(raw){const cd=raw.slice(0,-1),c=cd.map(x=>x.c),n=c.length-1;
+const e20=ema(c,20),e50=ema(c,50),e200=ema(c,200),R=rsi(c),K=smooth(stoch(R),3),D=smooth(K,3);
+const m=ema(c,12).map((v,i)=>v-ema(c,26)[i]),sg=ema(m,9),h=m[n]-sg[n],hp=m[n-1]-sg[n-1];
+const vv=cd.map(x=>x.v),va=vv.slice(-21,-1).reduce((p,q)=>p+q)/20,p=c[n];
+let s=(p>e50[n]?1:-1)+(e20[n]>e50[n]?1:-1)+(e50[n]>e200[n]?1:-1)+(h>0?1:-1)+(R[n]>50?1:-1);
+return{p,e20:e20[n],e50:e50[n],e200:e200[n],rsi:R[n],k:K[n],d:D[n],h,hp,vr:vv[n]/va,s,div:div(cd,R),fvg:fvg(cd),cd}}
+function zones(tf,p){const pts=[];tf.slice(1).forEach(t=>[1,0].forEach(hi=>piv(t.cd,4,hi).forEach(i=>{const v=hi?t.cd[i].h:t.cd[i].l;if(Math.abs(v-p)/p<.15)pts.push([v,t.w])})));
+pts.sort((a,b)=>a[0]-b[0]);const z=[];pts.forEach(([v,w])=>{const g=z.at(-1);if(g&&v<=g.lo*1.006){g.hi=v;g.s+=w;g.n++}else z.push({lo:v,hi:v,s:w,n:1})});
+return z.filter(g=>g.n>=2).map(g=>({...g,mid:(g.lo+g.hi)/2}))}
+async function get(iv){const r=await fetch('https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval='+iv);const j=await r.json();
+if(j.error&&j.error.length)throw new Error(j.error.join());const k=Object.keys(j.result).find(x=>x!='last');
+return j.result[k].map(a=>({t:a[0],o:+a[1],h:+a[2],l:+a[3],c:+a[4],v:+a[6]}))}
+const lab=o=>o>=60?['Erősen emelkedő','up']:o>=20?['Emelkedő','up']:o>-20?['Semleges','nu']:o>-60?['Csökkenő','dn']:['Erősen csökkenő','dn'];
+const row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`;
+const near=(a,p)=>a.slice().sort((x,y)=>Math.abs((x.lo+x.hi)/2-p)-Math.abs((y.lo+y.hi)/2-p)).slice(0,2);
+function card(t){const p=S.price,[l,c]=lab(t.s*20);
+const ab=(v)=>p>v?'felett':'alatt';
+const sk=t.k==null?'–':`K ${t.k.toFixed(0)} / D ${t.d.toFixed(0)}${t.k>80?' (túlvett)':t.k<20?' (túladott)':''}, ${t.k>t.d?'K fent':'K lent'}`;
+const vol=t.vr>1.5?'magas':t.vr<.6?'alacsony':'átlagos';
+const fv=near(t.fvg,p).map(g=>`<span class="${g.t=='bull'?'up':'dn'}">${g.t=='bull'?'bullish':'bearish'}</span> ${fmt(g.lo)}–${fmt(g.hi)}`).join('<br>')||'nincs nyitott';
+return`<div class="card"><div class="h"><b>${t.name}</b><b class="${c}">${l} (${t.s>0?'+':''}${t.s})</b></div>`+
+row('RSI',t.rsi.toFixed(0))+row('Stoch RSI',sk)+
+row('MACD',`hisztogram ${t.h>0?'pozitív':'negatív'}, ${t.h>t.hp?'nő':'csökken'}`)+
+row('Volumen',`${t.vr.toFixed(1)}× átlag (${vol})`)+
+row('EMA 20/50/200',`ár ${ab(t.e20)} / ${ab(t.e50)} / ${ab(t.e200)}`)+
+row('Divergencia',t.div.length?t.div.map(d=>`<span class="${d=='bullish'?'up':'dn'}">${d}</span>`).join(', '):'nincs')+
+row('FVG',fv)+`</div>`}
+function render(){const p=S.price;$('#px').textContent='$'+fmt(p);
+const tw=S.tf.reduce((a,t)=>a+t.w,0),o=S.tf.reduce((a,t)=>a+t.w*t.s/5,0)/tw*100;S.o=o;
+const[lb,cl]=lab(o);$('#ob').textContent='Összkép: '+lb+' ('+(o>0?'+':'')+Math.round(o)+')';$('#ob').className='ob '+cl;$('#mk').style.left=(o+100)/2+'%';
+$('#tf').innerHTML=S.tf.map(card).join('');
+const Z=S.zones,u=Z.filter(z=>z.mid>p).sort((a,b)=>a.mid-b.mid).slice(0,3).reverse(),d=Z.filter(z=>z.mid<=p).sort((a,b)=>b.mid-a.mid).slice(0,3);
+const st=s=>s>=6?'erős':s>=3?'közepes':'gyenge';
+const zr=(z,c)=>{const lo=z.lo==z.hi?z.lo*.999:z.lo,hi=z.lo==z.hi?z.hi*1.001:z.hi;return`<div class="r ${c}"><span>${fmt(lo)}–${fmt(hi)}</span><b>${st(z.s)}, ${((z.mid-p)/p*100).toFixed(1)}%</b></div>`};
+$('#zn').innerHTML='<div class="card"><div class="sub">Ellenállás</div>'+(u.map(z=>zr(z,'dn')).join('')||'<div class="m">nincs a közelben</div>')+'<div class="now">Ár: $'+fmt(p)+'</div><div class="sub">Támasz</div>'+(d.map(z=>zr(z,'up')).join('')||'<div class="m">nincs a közelben</div>')+'</div>'}
+async function load(){try{$('#st').textContent='Frissítés…';
+const raws=await Promise.all(TF.map(t=>get(t[0])));S.price=raws[0].at(-1).c;
+S.tf=TF.map((t,i)=>({name:t[1],w:t[2],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);render();
+$('#st').textContent='Frissítve: '+new Date().toLocaleTimeString('hu-HU')}
+catch(e){$('#st').textContent='Hiba: '+e.message+'. Ellenőrizd a netkapcsolatot, majd húzd le a frissítéshez.'}}
+function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),idotavok:S.tf.map(t=>({tf:t.name,pont_5ből:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),divergencia:t.div,fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
+ellenallas:S.zones.filter(z=>z.mid>S.price).sort((a,b)=>a.mid-b.mid).slice(0,3).map(z=>[r(z.lo),r(z.hi),z.s]),
+tamasz:S.zones.filter(z=>z.mid<=S.price).sort((a,b)=>b.mid-a.mid).slice(0,3).map(z=>[r(z.lo),r(z.hi),z.s])})}
+async function ai(){const key=ls.g('gk'),model=ls.g('gm')||'gemini-2.5-flash',o=$('#ao');o.hidden=false;
+if(!key){o.textContent='Add meg a Gemini API kulcsot a Beállításokban.';return}
+if(!S.tf){o.textContent='Várj, amíg betöltenek az adatok.';return}
+$('#ab').disabled=true;o.textContent='Elemzés készül…';
+const prompt='Tapasztalt kriptó technikai elemző vagy. Az alábbi, az appban kiszámolt BTC/USD adatok alapján adj tömör, magyar nyelvű elemzést (max. 180 szó): 1) összkép és valószínű irány, 2) kulcsszintek, 3) bullish és bearish forgatókönyv érvénytelenítési szinttel, 4) fő kockázatok. Csak az adatokból dolgozz, ne találj ki számokat, és ne adj befektetési tanácsot. Adatok: '+summary();
+try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+const j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);
+o.textContent=j.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'Üres válasz érkezett.'}
+catch(e){o.textContent='Hiba: '+e.message+'. Ellenőrizd a kulcsot és a modell nevét a Beállításokban.'}
+$('#ab').disabled=false}
+$('#ab').onclick=ai;
+$('#gk').value=ls.g('gk')||'';$('#gm').value=ls.g('gm')||'';
+$('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.trim());$('#sv').textContent='Mentve'; setTimeout(()=>$('#sv').textContent='Mentés',1500)};
+(()=>{const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');x.fillStyle='#0e1520';x.fillRect(0,0,180,180);x.fillStyle='#f2a93b';x.font='bold 110px -apple-system,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('₿',90,96);$('#ic').href=c.toDataURL()})();
+load();setInterval(load,30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+</script></body></html>
