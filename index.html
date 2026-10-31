@@ -75,7 +75,7 @@ function analyze(raw){const cd=raw.slice(0,-1),c=cd.map(x=>x.c),n=c.length-1;
 const e20=ema(c,20),e50=ema(c,50),e200=ema(c,200),R=rsi(c),K=smooth(stoch(R),3),D=smooth(K,3);
 const m=ema(c,12).map((v,i)=>v-ema(c,26)[i]),sg=ema(m,9),h=m[n]-sg[n],hp=m[n-1]-sg[n-1];
 const vv=cd.map(x=>x.v),va=vv.slice(-21,-1).reduce((p,q)=>p+q)/20,p=c[n];
-let s=(p>e50[n]?1:-1)+(e20[n]>e50[n]?1:-1)+(e50[n]>e200[n]?1:-1)+(h>0?1:-1)+(R[n]>50?1:-1);
+const stt=struct(cd).t;let s=(stt=='emelkedő'?1:stt=='csökkenő'?-1:0)+(p>e50[n]&&e50[n]>e200[n]?1:p<e50[n]&&e50[n]<e200[n]?-1:0)+(h>0?1:-1);
 return{p,e20:e20[n],e50:e50[n],e200:e200[n],rsi:R[n],k:K[n],d:D[n],h,hp,vr:vv[n]/va,s,div:div(cd,R),fvg:fvg(cd),st:struct(cd),cd}}
 function zones(tf,p){const pts=[];tf.slice(1).forEach(t=>[1,0].forEach(hi=>piv(t.cd,4,hi).forEach(i=>{const v=hi?t.cd[i].h:t.cd[i].l;if(Math.abs(v-p)/p<.15)pts.push([v,t.w])})));
 pts.sort((a,b)=>a[0]-b[0]);const z=[];pts.forEach(([v,w])=>{const g=z.at(-1);if(g&&v<=g.lo*1.006){g.hi=v;g.s+=w;g.n++}else z.push({lo:v,hi:v,s:w,n:1})});
@@ -86,7 +86,7 @@ return j.result[k].map(a=>({t:a[0],o:+a[1],h:+a[2],l:+a[3],c:+a[4],v:+a[6]}))}
 const lab=o=>o>=60?['Erősen emelkedő','up']:o>=20?['Emelkedő','up']:o>-20?['Semleges','nu']:o>-60?['Csökkenő','dn']:['Erősen csökkenő','dn'];
 const row=(a,b)=>`<div class="r"><span>${a}</span><b>${b}</b></div>`;
 const near=(a,p)=>a.slice().sort((x,y)=>Math.abs((x.lo+x.hi)/2-p)-Math.abs((y.lo+y.hi)/2-p)).slice(0,2);
-function card(t){const p=S.price,[l,c]=lab(t.s*20);
+function card(t){const p=S.price,[l,c]=lab(t.s*100/3);
 const ab=(v)=>p>v?'felett':'alatt';
 const sk=t.k==null?'–':`K ${t.k.toFixed(0)} / D ${t.d.toFixed(0)}${t.k>80?' (túlvett)':t.k<20?' (túladott)':''}, ${t.k>t.d?'K fent':'K lent'}`;
 const vol=t.vr>1.5?'magas':t.vr<.6?'alacsony':'átlagos';
@@ -100,7 +100,7 @@ row('Szerkezet',t.st.H?`<span class="${t.st.t=='emelkedő'?'up':t.st.t=='csökke
 row('Divergencia',t.div.length?t.div.map(d=>`<span class="${d=='bullish'?'up':'dn'}">${d}</span>`).join(', '):'nincs')+
 row('FVG',fv)+`</div>`}
 function render(){const p=S.price;$('#px').textContent='$'+fmt(p);
-const tw=S.tf.reduce((a,t)=>a+t.w,0),o=S.tf.reduce((a,t)=>a+t.w*t.s/5,0)/tw*100;S.o=o;
+const tw=S.tf.reduce((a,t)=>a+t.w,0),o=S.tf.reduce((a,t)=>a+t.w*t.s/3,0)/tw*100;S.o=o;
 const[lb,cl]=lab(o);$('#ob').textContent='Összkép: '+lb+' ('+(o>0?'+':'')+Math.round(o)+')';$('#ob').className='ob '+cl;$('#mk').style.left=(o+100)/2+'%';
 $('#tf').innerHTML=S.tf.map(card).join('');chart();
 const Z=S.zones,u=Z.filter(z=>z.mid>p).sort((a,b)=>a.mid-b.mid).slice(0,3).reverse(),d=Z.filter(z=>z.mid<=p).sort((a,b)=>b.mid-a.mid).slice(0,3);
@@ -129,7 +129,7 @@ S.tf=TF.map((t,i)=>({name:t[1],w:t[2],...analyze(raws[i])}));S.zones=zones(S.tf,
 $('#st').textContent='Frissítve: '+new Date().toLocaleTimeString('hu-HU')}
 catch(e){$('#st').textContent='Hiba: '+e.message+'. Ellenőrizd a netkapcsolatot, majd húzd le a frissítéshez.'}}
 const atr=cd=>{const s=cd.slice(-15);let a=0;for(let i=1;i<s.length;i++)a+=Math.max(s[i].h-s[i].l,Math.abs(s[i].h-s[i-1].c),Math.abs(s[i].l-s[i-1].c));return a/(s.length-1)};
-function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),idotavok:S.tf.map(t=>({tf:t.name,pont_5ből:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),szerkezet:{trend:t.st.t,csucsok:t.st.H,melypontok:t.st.L,utolso_ket_csucs:[r(t.st.h1),r(t.st.h2)],utolso_ket_melypont:[r(t.st.l1),r(t.st.l2)]},atr:r(atr(t.cd)),elmult_20_gyertya_csucs:r(Math.max(...t.cd.slice(-20).map(q=>q.h))),elmult_20_gyertya_melypont:r(Math.min(...t.cd.slice(-20).map(q=>q.l))),utolso_zart_gyertya:{max:r(t.cd.at(-1).h),min:r(t.cd.at(-1).l),zaro:r(t.cd.at(-1).c)},ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),ar_felette:{ema20:S.price>t.e20,ema50:S.price>t.e50,ema200:S.price>t.e200},divergencia:t.div,fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
+function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),idotavok:S.tf.map(t=>({tf:t.name,pont_3ból:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),szerkezet:{trend:t.st.t,csucsok:t.st.H,melypontok:t.st.L,utolso_ket_csucs:[r(t.st.h1),r(t.st.h2)],utolso_ket_melypont:[r(t.st.l1),r(t.st.l2)]},atr:r(atr(t.cd)),elmult_20_gyertya_csucs:r(Math.max(...t.cd.slice(-20).map(q=>q.h))),elmult_20_gyertya_melypont:r(Math.min(...t.cd.slice(-20).map(q=>q.l))),utolso_zart_gyertya:{max:r(t.cd.at(-1).h),min:r(t.cd.at(-1).l),zaro:r(t.cd.at(-1).c)},ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),ar_felette:{ema20:S.price>t.e20,ema50:S.price>t.e50,ema200:S.price>t.e200},divergencia:t.div,fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
 ellenallas:S.zones.filter(z=>z.mid>S.price).sort((a,b)=>a.mid-b.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:z.s,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)})),
 tamasz:S.zones.filter(z=>z.mid<=S.price).sort((a,b)=>b.mid-a.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:z.s,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)}))})}
 async function ai(){const key=ls.g('gk'),model=ls.g('gm')||'gemini-2.5-flash',o=$('#ao');o.hidden=false;
