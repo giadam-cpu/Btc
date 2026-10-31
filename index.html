@@ -47,6 +47,7 @@ details button{background:var(--l);color:var(--t)}
 <details><summary>Beállítások</summary>
 <input id="gk" type="password" placeholder="Gemini API kulcs" autocomplete="off">
 <input id="gm" placeholder="Gemini modell (alap: gemini-3.1-flash-lite)">
+<input id="wu" placeholder="Napló szerver URL (opcionális)" autocomplete="off">
 <label style="display:block;margin:8px 0"><input id="sm" type="checkbox" style="width:auto;margin-right:8px">Szigorú mód: a belépőhöz a 15p szerkezetváltás is kell</label>
 <button id="sv">Mentés</button></details>
 <p class="m">Az adatok a Kraken publikus API-jából jönnek. Valószínűségi értékelés, nem pénzügyi tanács.</p>
@@ -85,8 +86,8 @@ function analyze(raw){const cd=raw.slice(0,-1),c=cd.map(x=>x.c),n=c.length-1;
 const e20=ema(c,20),e50=ema(c,50),e200=ema(c,200),R=rsi(c),K=smooth(stoch(R),3),D=smooth(K,3);
 const e26=ema(c,26),m=ema(c,12).map((v,i)=>v-e26[i]),sg=ema(m,9),h=m[n]-sg[n],hp=m[n-1]-sg[n-1];
 const vv=cd.map(x=>x.v),va=vv.slice(-21,-1).reduce((p,q)=>p+q)/20,p=c[n];
-const A=atr(cd);const stt=struct(cd).t;let s=(stt=='emelkedő'?1:stt=='csökkenő'?-1:0)+(p>e50[n]&&e50[n]>e200[n]?1:p<e50[n]&&e50[n]<e200[n]?-1:0)+(h>0?(h>hp?1:0):(h<hp?-1:0));
-return{p,e20:e20[n],e50:e50[n],e200:e200[n],rsi:R[n],k:K[n],d:D[n],h,hp,vr:vv[n]/va,s,atr:A,div:div(cd,R,A),fvg:fvg(cd),st:struct(cd),ax:adx(cd),cd}}
+const A=atr(cd),SR=struct(cd);const stt=SR.t;let s=(stt=='emelkedő'?1:stt=='csökkenő'?-1:0)+(p>e50[n]&&e50[n]>e200[n]?1:p<e50[n]&&e50[n]<e200[n]?-1:0)+(h>0?(h>hp?1:0):(h<hp?-1:0));
+return{p,e20:e20[n],e50:e50[n],e200:e200[n],rsi:R[n],k:K[n],d:D[n],h,hp,vr:vv[n]/va,s,atr:A,div:div(cd,R,A),fvg:fvg(cd),st:SR,ax:adx(cd),cd}}
 function zones(tf,p){const A=tf[1].atr,tol=Math.min(Math.max(.7*A,p*.002),p*.008),pts=[];
 tf.slice(1).forEach(t=>[1,0].forEach(hi=>piv(t.cd,4,hi).forEach(i=>{const v=hi?t.cd[i].h:t.cd[i].l;if(Math.abs(v-p)/p<.15)pts.push([v,t.zw*(.6+.4*i/t.cd.length),t.name])})));
 pts.sort((a,b)=>a[0]-b[0]);const z=[];
@@ -127,14 +128,29 @@ function decide(){S.cn=false;let g=plan();
 if(g.dir&&g.e&&confirm5(g.dir,g.e)){S.cn=true;const g2=plan();S.cn=false;if(g2.d!='NO TRADE')g=g2;else g.r+=' Az 5p fordulójel megvolt, de: '+g2.r}
 if(g.cf)g.sm=micro(g.dir);S.sig=g}
 const jget=()=>{try{return JSON.parse(ls.g('jn')||'[]')}catch(e){return[]}};
-function jadd(g,m){const a=jget();a.push({t:Date.now(),m,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
+function jadd(g,m){const a=jget();a.push({t:Date.now(),m,k:g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi),d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
+const jdup=(m,k,t)=>jget().some(x=>(x.m||'enyhe')==m&&x.k==k&&Math.abs(x.t-t)<36e5);
 function jeval(){const a=jget();if(!a.length||!S.m5)return a;a.forEach(x=>{if(x.res)return;for(const q of S.m5){if(q.t*1000<=x.t)continue;const L=x.d=='LONG',st=L?q.l<=x.stop:q.h>=x.stop,tp=L?q.h>=x.tp1:q.l<=x.tp1;if(st){x.res='STOP';break}if(tp){x.res='TP1';break}}});ls.s('jn',JSON.stringify(a));return a}
+async function replay(raws,m5){if(ls.g('wu')||!m5)return;const last=+(ls.g('rt')||0),n=m5.length-1;
+if(n<10||m5[n-1].t*1000+3e5<=last)return;
+$('#st').textContent='Napló visszaszámolása…';await new Promise(r=>setTimeout(r,30));
+const a=jget(),ptr=TF.map(()=>0),cache=TF.map(()=>({e:-1})),fired={};let zc=-1,endT=last;
+for(let k=3;k<n;k++){const T=m5[k].t+300;if(T*1000<=last)continue;endT=T*1000;
+const px=m5[k].c;S.price=px;S.m5=m5.slice(0,k+1).concat([{t:T,o:px,h:px,l:px,c:px,v:0}]);
+S.tf=TF.map((t,i)=>{const r=raws[i],c=cache[i];while(ptr[i]<r.length&&r[ptr[i]].t<=T)ptr[i]++;if(c.e!==ptr[i]){c.e=ptr[i];c.v={name:t[1],w:t[2],zw:t[3],...analyze(r.slice(0,ptr[i]))}}return c.v});
+if(zc!==cache[1].e){zc=cache[1].e;S.zones=zones(S.tf,px)}
+decide();const g=S.sig;
+if(g.cf){const key=g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi);
+[['enyhe',1],['szigorú',g.sm]].forEach(([m,ok])=>{if(!ok)return;const fk=m+key;if(fired[fk]&&T*1000-fired[fk]<36e5)return;fired[fk]=T*1000;
+if(!a.some(x=>(x.m||'enyhe')==m&&x.k==key&&Math.abs(x.t-T*1000)<36e5))a.push({t:T*1000,m,k:key,rp:1,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,res:null})})}}
+a.sort((x,y)=>x.t-y.t);ls.s('jn',JSON.stringify(a.slice(-80)));ls.s('rt',String(endT))}
 function jr(a){const grp=m=>{const x=a.filter(q=>(q.m||'enyhe')==m),d=x.filter(q=>q.res),w=d.filter(q=>q.res=='TP1').length,R=d.reduce((v,q)=>v+(q.res=='TP1'?q.rr1:-1),0);return row(m+' mód',d.length+' lezárt, nyert '+w+', nettó '+(R>0?'+':'')+R.toFixed(1)+' R'+(x.length>d.length?', nyitott '+(x.length-d.length):''))};
-$('#jn').innerHTML=a.length?grp('enyhe')+grp('szigorú')+a.slice(-8).reverse().map(x=>row(new Date(x.t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' '+x.d+' ('+(x.m||'enyhe')+')',fmt(x.entry)+' → '+(x.res=='TP1'?'<span class="up">TP1</span>':x.res=='STOP'?'<span class="dn">stop</span>':'nyitott'))).join('')+'<div class="m" style="margin-top:6px">Az enyhe mód minden 5p megerősített jelzést naplóz, a szigorú csak azt, ahol a 15p szerkezetváltás is megvolt. A stop és a TP1 közül az ér el előbb. Ezen az eszközön tárolódik.</div>':'<div class="m">Még nincs mentett jelzés.</div>'}
+$('#jn').innerHTML=a.length?grp('enyhe')+grp('szigorú')+a.slice(-8).reverse().map(x=>row(new Date(x.t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' '+x.d+' ('+(x.m||'enyhe')+(x.rp?', visszaszámolt':'')+')',fmt(x.entry)+' → '+(x.res=='TP1'?'<span class="up">TP1</span>':x.res=='STOP'?'<span class="dn">stop</span>':'nyitott'))).join('')+'<div class="m" style="margin-top:6px">Az enyhe mód minden 5p megerősített jelzést naplóz, a szigorú csak azt, ahol a 15p szerkezetváltás is megvolt. A stop és a TP1 közül az ér el előbb. Ezen az eszközön tárolódik.</div>':'<div class="m">Még nincs mentett jelzés.</div>'}
+async function srvJr(){const u=ls.g('wu');if(!u){jr(jeval());return}try{const r=await fetch(u);jr(await r.json());$('#jn').insertAdjacentHTML('beforeend','<div class="m">Forrás: szerver (akkor is naplóz, ha az app zárva van)</div>')}catch(e){jr(jeval())}}
 function alerts(){const g=S.sig,now=Date.now(),strict=ls.g('sm')=='1';S.fired=S.fired||{};
 const gate=(k,f)=>{if(!S.fired[k]||now-S.fired[k]>36e5){S.fired[k]=now;f()}};
 const key=g.dir&&g.e?g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi):'';
-if(g.cf){gate('je:'+key,()=>jadd(g,'enyhe'));if(g.sm)gate('js:'+key,()=>jadd(g,'szigorú'))}
+if(g.cf&&!ls.g('wu')){gate('je:'+key,()=>{if(!jdup('enyhe',key,now))jadd(g,'enyhe')});if(g.sm)gate('js:'+key,()=>{if(!jdup('szigorú',key,now))jadd(g,'szigorú')})}
 const ok=g.cf&&(!strict||g.sm),lvl=ok?2:(g.dir&&g.e&&(g.cf||g.da<=3)?1:0);
 if(S.act&&(S.act.dir>0?S.price<=S.act.stop:S.price>=S.act.stop)){fire('❌ ÉRVÉNYTELEN','Az ár elérte a stopot ('+fmt(S.act.stop)+').',1);S.act=null}
 let txt='',col='var(--a)',cl='nu';
@@ -187,8 +203,8 @@ x.setLineDash([2,3]);x.strokeStyle='#e8edf5';x.beginPath();x.moveTo(0,y(p));x.li
 x.fillStyle='#8a98b0';x.font='11px -apple-system,sans-serif';[hi,(hi+lo)/2,lo].forEach(v=>x.fillText(fmt(v),W-pr+4,y(v)+4));
 x.fillStyle='#e8edf5';x.fillText(fmt(p),W-pr+4,y(p)+4)}
 async function load(){try{$('#st').textContent='Frissítés…';
-const[raws,px,m5]=await Promise.all([Promise.all(TF.map(t=>get(t[0]))),tick().catch(()=>null),get(5).catch(()=>null)]);S.m5=m5;S.price=px||raws[0].at(-1).c;
-S.tf=TF.map((t,i)=>({name:t[1],w:t[2],zw:t[3],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);decide();render();alerts();jr(jeval());
+const[raws,px,m5]=await Promise.all([Promise.all(TF.map(t=>get(t[0]))),tick().catch(()=>null),get(5).catch(()=>null)]);await replay(raws,m5);S.m5=m5;S.price=px||raws[0].at(-1).c;
+S.tf=TF.map((t,i)=>({name:t[1],w:t[2],zw:t[3],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);decide();render();alerts();srvJr();
 $('#st').textContent='Frissítve: '+new Date().toLocaleTimeString('hu-HU')}
 catch(e){$('#st').textContent='Hiba: '+e.message+'. Ellenőrizd a netkapcsolatot, majd húzd le a frissítéshez.'}}
 const atr=cd=>{if(cd.length<16)return 0;const tr=i=>Math.max(cd[i].h-cd[i].l,Math.abs(cd[i].h-cd[i-1].c),Math.abs(cd[i].l-cd[i-1].c));let a=0;for(let i=1;i<=14;i++)a+=tr(i);a/=14;for(let i=15;i<cd.length;i++)a=(a*13+tr(i))/14;return a};
@@ -210,8 +226,8 @@ o.textContent=(j.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'Üre
 catch(e){o.textContent='Hiba: '+e.message+([400,401,403,404].includes(st)?' Ellenőrizd a kulcsot és a modell nevét a Beállításokban.':' Próbáld újra egy perc múlva.')}
 $('#ab').disabled=false}
 $('#ab').onclick=ai;
-$('#gk').value=ls.g('gk')||'';$('#gm').value=ls.g('gm')||'';$('#sm').checked=ls.g('sm')=='1';
-$('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.trim());ls.s('sm',$('#sm').checked?'1':'0');$('#sv').textContent='Mentve'; setTimeout(()=>$('#sv').textContent='Mentés',1500)};
+$('#gk').value=ls.g('gk')||'';$('#gm').value=ls.g('gm')||'';$('#sm').checked=ls.g('sm')=='1';$('#wu').value=ls.g('wu')||'';
+$('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.trim());ls.s('sm',$('#sm').checked?'1':'0');ls.s('wu',$('#wu').value.trim());$('#sv').textContent='Mentve'; setTimeout(()=>$('#sv').textContent='Mentés',1500)};
 (()=>{const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');x.fillStyle='#0e1520';x.fillRect(0,0,180,180);x.fillStyle='#f2a93b';x.font='bold 110px -apple-system,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('₿',90,96);$('#ic').href=c.toDataURL()})();
 $('#ch').onclick=e=>{const b=e.target.closest('button');if(b&&S.tf){S.ci=+b.dataset.i;chart()}};
 addEventListener('resize',()=>{if(S.tf)chart()});
