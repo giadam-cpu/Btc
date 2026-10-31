@@ -37,12 +37,13 @@ details{margin-top:18px}summary{color:var(--m)}
 input{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid var(--l);background:var(--s);color:var(--t);font-size:16px}
 details button{background:var(--l);color:var(--t)}
 </style></head><body>
-<header><div id="px" class="px">–</div><div id="ob" class="ob">Betöltés…</div><div class="tr"><i id="mk"></i></div><div id="st" class="m"></div><div id="sg" style="margin-top:12px"></div></header>
+<header><div id="px" class="px">–</div><div id="ob" class="ob">Betöltés…</div><div class="tr"><i id="mk"></i></div><div id="st" class="m"></div><div id="al" style="margin-top:12px"></div><div id="sg" style="margin-top:12px"></div></header>
 <h2>Chart</h2><div id="ch" class="chips"></div><canvas id="cv"></canvas>
 <p class="m">Zöld sáv: támasz, piros sáv: ellenállás. Narancs szaggatott: nyitott FVG. Vonalak: EMA20 (narancs), EMA50 (kék).</p>
 <h2>Időtávok</h2><div id="tf"></div>
 <h2>Támasz és ellenállás</h2><div id="zn"></div>
 <h2>AI elemzés</h2><button id="ab">Elemzés kérése</button><div id="ao" class="card" hidden></div>
+<h2>Jelnapló</h2><div id="jn" class="card"></div>
 <details><summary>Beállítások</summary>
 <input id="gk" type="password" placeholder="Gemini API kulcs" autocomplete="off">
 <input id="gm" placeholder="Gemini modell (alap: gemini-2.5-flash)">
@@ -103,8 +104,34 @@ row('EMA 20/50/200',`ár ${ab(t.e20)} / ${ab(t.e50)} / ${ab(t.e200)}`)+
 row('Szerkezet',t.st.H?`<span class="${t.st.t=='emelkedő'?'up':t.st.t=='csökkenő'?'dn':'nu'}">${t.st.H} + ${t.st.L}</span> (${t.st.t})`:t.st.t)+
 row('Divergencia',t.div.length?t.div.map(d=>`<span class="${d.t=='bullish'?'up':'dn'}">${d.t}</span> (${d.ok?'megerősített':'megerősítetlen'})`).join('<br>'):'nincs')+
 row('FVG',fv)+`</div>`}
+let AC=null;
+function beep(n){if(!AC)return;for(let i=0;i<n;i++){const t=AC.currentTime+i*.3,o=AC.createOscillator(),g=AC.createGain();o.frequency.value=n>1?988:660;o.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(.2,t);g.gain.setValueAtTime(0,t+.18);o.start(t);o.stop(t+.2)}}
+async function enableAl(){try{AC=new(window.AudioContext||window.webkitAudioContext)();await AC.resume();beep(1)}catch(e){}
+try{if('Notification' in window)await Notification.requestPermission()}catch(e){}
+try{S.wl=await navigator.wakeLock?.request('screen')}catch(e){}
+S.on=true;alerts()}
+function fire(t,b,n){beep(n);if(S.on&&'Notification' in window&&Notification.permission=='granted')try{new Notification(t,{body:b})}catch(e){}document.title=t+' – BTC'}
+function confirm5(dir,e,A){if(!S.m5)return false;const c=S.m5.slice(0,-1).slice(-3);
+return c.some(q=>{const rg=q.h-q.l;if(!rg)return false;return dir>0?(q.l<=e.hi&&q.l>=e.lo-.5*A&&q.c>q.o&&q.c>e.hi&&(Math.min(q.o,q.c)-q.l)/rg>=.4):(q.h>=e.lo&&q.h<=e.hi+.5*A&&q.c<q.o&&q.c<e.lo&&(q.h-Math.max(q.o,q.c))/rg>=.4)})&&(dir>0?S.price>e.hi:S.price<e.lo)}
+function decide(){S.cn=false;let g=plan();
+if(g.dir&&g.e&&confirm5(g.dir,g.e,S.tf[1].atr)){S.cn=true;const g2=plan();S.cn=false;if(g2.d!='NO TRADE')g=g2;else g.r+=' Az 5p fordulójel megvolt, de: '+g2.r}
+S.sig=g}
+const jget=()=>{try{return JSON.parse(ls.g('jn')||'[]')}catch(e){return[]}};
+function jadd(g){const a=jget();a.push({t:Date.now(),d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,res:null});ls.s('jn',JSON.stringify(a.slice(-50)))}
+function jeval(){const a=jget();if(!a.length||!S.m5)return a;a.forEach(x=>{if(x.res)return;for(const q of S.m5){if(q.t*1000<=x.t)continue;const L=x.d=='LONG',st=L?q.l<=x.stop:q.h>=x.stop,tp=L?q.h>=x.tp1:q.l<=x.tp1;if(st){x.res='STOP';break}if(tp){x.res='TP1';break}}});ls.s('jn',JSON.stringify(a));return a}
+function jr(a){const done=a.filter(x=>x.res),w=done.filter(x=>x.res=='TP1').length,R=done.reduce((q,x)=>q+(x.res=='TP1'?x.rr1:-1),0);
+$('#jn').innerHTML=a.length?row('Lezárt',done.length+' (nyert '+w+', vesztett '+(done.length-w)+')')+row('Nettó eredmény',(R>0?'+':'')+R.toFixed(1)+' R')+a.slice(-8).reverse().map(x=>row(new Date(x.t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' '+x.d,fmt(x.entry)+' → '+(x.res=='TP1'?'<span class="up">TP1</span>':x.res=='STOP'?'<span class="dn">stop</span>':'nyitott'))).join('')+'<div class="m" style="margin-top:6px">Csak a BELÉPHETSZ jelzések, a stop és a TP1 közül az ér el előbb. Ezen az eszközön, ebben a böngészőben tárolódik.</div>':'<div class="m">Még nincs mentett jelzés.</div>'}
+function alerts(){const g=S.sig,now=Date.now(),lvl=g.cf?2:(g.dir&&g.e&&g.da<=3?1:0);S.fired=S.fired||{};
+if(S.act&&(S.act.dir>0?S.price<=S.act.stop:S.price>=S.act.stop)){fire('❌ ÉRVÉNYTELEN','Az ár elérte a stopot ('+fmt(S.act.stop)+').',1);S.act=null}
+let txt='',col='var(--a)',cl='nu';
+if(lvl){const key=g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi)+':'+lvl,nm=g.dir>0?'támasz':'ellenállás';
+if(lvl==2){txt=(g.dir>0?'🟢':'🔴')+' BELÉPHETSZ '+g.d+': belépő '+fmt(g.entry)+', stop '+fmt(g.stop)+', TP1 '+fmt(g.tp1)+' (R:R '+g.rr1.toFixed(1)+')';col=g.dir>0?'var(--up)':'var(--dn)';cl=g.dir>0?'up':'dn'}
+else txt='🟡 FIGYELD: az ár '+g.da.toFixed(1)+'× ATR-re van a '+nm+' zónától ('+fmt(g.e.lo)+'–'+fmt(g.e.hi)+'), irány: '+(g.dir>0?'LONG':'SHORT');
+if(!S.fired[key]||now-S.fired[key]>36e5){S.fired[key]=now;if(lvl==2){S.act={dir:g.dir,stop:g.stop};jadd(g);fire('BELÉPHETSZ '+g.d,txt,3)}else fire('FIGYELD',txt,1)}}
+S.al={lvl};
+$('#al').innerHTML=(txt?`<div class="card" style="border-color:${col}"><b class="${cl}">${txt}</b></div>`:'')+(S.on?'':'<button id="ae" style="margin-bottom:8px">🔔 Hang és értesítés bekapcsolása</button>')}
 function conf(){const T=S.tf,a=T[2].s+T[3].s,b=T[0].s+T[1].s;return Math.abs(a)>=2&&Math.abs(b)>=2&&a*b<0?'⚠ Ellentmondás: a magasabb idősík (4ó+1n) '+(a>0?'emelkedő':'csökkenő')+', az alacsonyabb (15p+1ó) '+(b>0?'emelkedő':'csökkenő')+' jelzést ad.':''}
-function plan(){const T=S.tf,p=S.price,Z=S.zones,A=T[1].atr,h=T[2].s+T[3].s,no=r=>({d:'NO TRADE',r});
+function plan(){const T=S.tf,p=S.price,Z=S.zones,A=T[1].atr,h=T[2].s+T[3].s,no=(r,x)=>({d:'NO TRADE',r,...x});
 const dir=h>=3?1:h<=-3?-1:0;
 if(!dir)return no('A 4ó és az 1n trendje nem elég egyértelmű (összesen '+(h>0?'+':'')+h+'/6, a belépőhöz legalább ±3 kell).');
 if(T[2].st.t==(dir>0?'csökkenő':'emelkedő'))return no('A 4ó szerkezete ellentmond a magasabb idősík irányának.');
@@ -112,17 +139,17 @@ if(T[1].s*dir<1)return no('Az 1ó nem erősíti a 4ó/1n irányát, nincs belép
 if(T[0].s*dir<=-3)return no('A 15p erősen ellentétes irányba mutat, várd meg a fordulót.');
 const e=dir>0?Z.filter(z=>z.lo<p).sort((a,b)=>Math.min(p,b.hi)-Math.min(p,a.hi))[0]:Z.filter(z=>z.hi>p).sort((a,b)=>Math.max(p,a.lo)-Math.max(p,b.lo))[0],nm=dir>0?'támasz':'ellenállás';
 if(!e)return no('Nincs közeli '+nm+' zóna a belépéshez.');
-const entry=dir>0?Math.min(p,e.hi):Math.max(p,e.lo),dist=Math.abs(p-entry);
-if(dist>2*A)return no('A '+nm+' zóna ('+fmt(e.lo)+'–'+fmt(e.hi)+') túl messze van ('+(dist/A).toFixed(1)+'× ATR), várj visszahúzódásra.');
+const edge=dir>0?Math.min(p,e.hi):Math.max(p,e.lo),dist=Math.abs(p-edge),entry=S.cn?p:edge;
+if(dist>2*A)return no('A '+nm+' zóna ('+fmt(e.lo)+'–'+fmt(e.hi)+') túl messze van ('+(dist/A).toFixed(1)+'× ATR), várj visszahúzódásra.',{dir,e,da:dist/A});
 const stop=dir>0?Math.min(e.lo-.5*A,entry-A):Math.max(e.hi+.5*A,entry+A),risk=Math.abs(entry-stop);
 const O=(dir>0?Z.filter(z=>z.lo>entry).sort((a,b)=>a.lo-b.lo):Z.filter(z=>z.hi<entry).sort((a,b)=>b.hi-a.hi)).map(z=>dir>0?z.lo:z.hi);
 const tp1=O[0]??entry+dir*1.5*risk,tp2=O[1]??tp1+dir*1.5*risk,rr1=Math.abs(tp1-entry)/risk,rr2=Math.abs(tp2-entry)/risk;
 if(rr1<1.5)return no('A következő '+(dir>0?'ellenállás':'támasz')+' ('+fmt(tp1)+') túl közel van, a kockázat:hozam csak '+rr1.toFixed(1)+', legalább 1,5 kell.');
-return{d:dir>0?'LONG':'SHORT',entry,stop,tp1,tp2,rr1,rr2,mod:dist<.25*A?'piaci ár':'visszateszt',r:'A 4ó és az 1n '+(dir>0?'emelkedő':'csökkenő')+', az 1ó erősít. Belépő a '+nm+' zónánál ('+fmt(e.lo)+'–'+fmt(e.hi)+'), a stop a zóna túloldalán (legalább 1 ATR), a célok a következő zónáknál.'}}
+return{d:dir>0?'LONG':'SHORT',dir,e,da:dist/A,entry,stop,tp1,tp2,rr1,rr2,mod:S.cn?'megerősítés után, piaci ár':dist<.25*A?'piaci ár':'visszateszt',cf:!!S.cn,r:'A 4ó és az 1n '+(dir>0?'emelkedő':'csökkenő')+', az 1ó erősít. Belépő a '+nm+' zónánál ('+fmt(e.lo)+'–'+fmt(e.hi)+'), a stop a zóna túloldalán (legalább 1 ATR), a célok a következő zónáknál.'}}
 function render(){const p=S.price;$('#px').textContent='$'+fmt(p);
 const tw=S.tf.reduce((a,t)=>a+t.w,0),o=S.tf.reduce((a,t)=>a+t.w*t.s/3,0)/tw*100;S.o=o;
 const[lb,cl]=lab(o);$('#ob').textContent='Összkép: '+lb+' ('+(o>0?'+':'')+Math.round(o)+')';$('#ob').className='ob '+cl;$('#mk').style.left=(o+100)/2+'%';
-const g=S.sig,cf=conf();$('#sg').innerHTML=`<div class="card"><div class="h"><b>Jelzés</b><b class="${g.d=='LONG'?'up':g.d=='SHORT'?'dn':'nu'}">${g.d}</b></div>`+(g.entry?row('Belépő',fmt(g.entry)+' ('+g.mod+')')+row('Stop',fmt(g.stop))+row('TP1',fmt(g.tp1)+' (R:R '+g.rr1.toFixed(1)+')')+row('TP2',fmt(g.tp2)+' (R:R '+g.rr2.toFixed(1)+')'):'')+`<div class="m" style="margin-top:6px">${g.r}</div>${cf?`<div class="nu" style="margin-top:6px">${cf}</div>`:''}</div>`;
+const g=S.sig,cf=conf();$('#sg').innerHTML=`<div class="card"><div class="h"><b>Jelzés</b><b class="${g.d=='LONG'?'up':g.d=='SHORT'?'dn':'nu'}">${g.d}${g.entry&&!g.cf?' (megerősítésre vár)':''}</b></div>`+(g.entry?row('Belépő',fmt(g.entry)+' ('+g.mod+')')+row('Stop',fmt(g.stop))+row('TP1',fmt(g.tp1)+' (R:R '+g.rr1.toFixed(1)+')')+row('TP2',fmt(g.tp2)+' (R:R '+g.rr2.toFixed(1)+')'):'')+`<div class="m" style="margin-top:6px">${g.r}</div>${cf?`<div class="nu" style="margin-top:6px">${cf}</div>`:''}</div>`;
 $('#tf').innerHTML=S.tf.map(card).join('');chart();
 const Z=S.zones,u=Z.filter(z=>z.mid>p).sort((a,b)=>a.mid-b.mid).slice(0,3).reverse(),d=Z.filter(z=>z.mid<=p).sort((a,b)=>b.mid-a.mid).slice(0,3);
 const st=s=>s>=6?'erős':s>=3?'közepes':'gyenge';
@@ -145,12 +172,12 @@ x.setLineDash([2,3]);x.strokeStyle='#e8edf5';x.beginPath();x.moveTo(0,y(p));x.li
 x.fillStyle='#8a98b0';x.font='11px -apple-system,sans-serif';[hi,(hi+lo)/2,lo].forEach(v=>x.fillText(fmt(v),W-pr+4,y(v)+4));
 x.fillStyle='#e8edf5';x.fillText(fmt(p),W-pr+4,y(p)+4)}
 async function load(){try{$('#st').textContent='Frissítés…';
-const[raws,px]=await Promise.all([Promise.all(TF.map(t=>get(t[0]))),tick().catch(()=>null)]);S.price=px||raws[0].at(-1).c;
-S.tf=TF.map((t,i)=>({name:t[1],w:t[2],zw:t[3],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);S.sig=plan();render();
+const[raws,px,m5]=await Promise.all([Promise.all(TF.map(t=>get(t[0]))),tick().catch(()=>null),get(5).catch(()=>null)]);S.m5=m5;S.price=px||raws[0].at(-1).c;
+S.tf=TF.map((t,i)=>({name:t[1],w:t[2],zw:t[3],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);decide();render();alerts();jr(jeval());
 $('#st').textContent='Frissítve: '+new Date().toLocaleTimeString('hu-HU')}
 catch(e){$('#st').textContent='Hiba: '+e.message+'. Ellenőrizd a netkapcsolatot, majd húzd le a frissítéshez.'}}
 const atr=cd=>{if(cd.length<16)return 0;const tr=i=>Math.max(cd[i].h-cd[i].l,Math.abs(cd[i].h-cd[i-1].c),Math.abs(cd[i].l-cd[i-1].c));let a=0;for(let i=1;i<=14;i++)a+=tr(i);a/=14;for(let i=15;i<cd.length;i++)a=(a*13+tr(i))/14;return a};
-const sgJ=()=>{const g=S.sig,r=Math.round;return{dontes:g.d,indok:g.r,...(g.entry?{belepo:r(g.entry),stop:r(g.stop),tp1:r(g.tp1),tp2:r(g.tp2),rr_tp1:+g.rr1.toFixed(2),rr_tp2:+g.rr2.toFixed(2)}:{})}};
+const sgJ=()=>{const g=S.sig,r=Math.round;return{dontes:g.d,megerositve_5p:!!g.cf,indok:g.r,...(g.entry?{belepo:r(g.entry),stop:r(g.stop),tp1:r(g.tp1),tp2:r(g.tp2),rr_tp1:+g.rr1.toFixed(2),rr_tp2:+g.rr2.toFixed(2)}:{})}};
 function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),jelzes:sgJ(),idotavok:S.tf.map(t=>({tf:t.name,pont_3ból:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),szerkezet:{trend:t.st.t,csucsok:t.st.H,melypontok:t.st.L,utolso_ket_csucs:[r(t.st.h1),r(t.st.h2)],utolso_ket_melypont:[r(t.st.l1),r(t.st.l2)]},atr:r(t.atr),elmult_20_gyertya_csucs:r(Math.max(...t.cd.slice(-20).map(q=>q.h))),elmult_20_gyertya_melypont:r(Math.min(...t.cd.slice(-20).map(q=>q.l))),utolso_zart_gyertya:{max:r(t.cd.at(-1).h),min:r(t.cd.at(-1).l),zaro:r(t.cd.at(-1).c)},ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),ar_felette:{ema20:S.price>t.e20,ema50:S.price>t.e50,ema200:S.price>t.e200},divergencia:t.div.map(d=>({tipus:d.t,strukturatores_megerositve:d.ok})),fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
 ellenallas:S.zones.filter(z=>z.mid>S.price).sort((a,b)=>a.mid-b.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:z.s,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)})),
 tamasz:S.zones.filter(z=>z.mid<=S.price).sort((a,b)=>b.mid-a.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:z.s,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)}))})}
@@ -158,7 +185,7 @@ async function ai(){const key=ls.g('gk'),model=ls.g('gm')||'gemini-3.1-flash-lit
 if(!key){o.textContent='Add meg a Gemini API kulcsot a Beállításokban.';return}
 if(!S.tf){o.textContent='Várj, amíg betöltenek az adatok.';return}
 $('#ab').disabled=true;o.textContent='Elemzés készül…';
-const prompt='Tapasztalt kriptó technikai elemző vagy. Az alábbi, az appban kiszámolt BTC/USD adatok alapján írj tömör magyar elemzést, max. 300 szó, rövid listákkal és emojikkal (📈📉), markdown csillagok nélkül. A jelzes mezőt maga az app számolta ki (LONG, SHORT vagy NO TRADE, belépő, stop, TP1, TP2, kockázat:hozam). Ezeket NE változtasd meg és ne számolj újra, csak értelmezd és indokold az adatokból. Szerkezet: 1) Összkép: a 4ó és az 1n a trendszűrő, az 1ó és a 15p a belépési időtáv; sorold fel időtávonként a szerkezetet (HH/HL, LH/LL), és mondd ki, ha a magasabb és az alacsonyabb időtáv ellentmond. 2) Szintek: a legközelebbi ellenállás és támasz számokkal, a nyitott FVG-k és a divergencia (csak a struktúratöréssel megerősített divergenciát tekintsd erős jelzésnek). 3) Jelzés: ha LONG vagy SHORT, indokold a megadott belépőt, stopot és célokat a szintekkel; ha NO TRADE, magyarázd el, miért, és mire kell várni (milyen szint, zárás vagy szerkezetváltás indítana jelzést). Ne erőltess belépőt. 4) Megerősítés és érvénytelenítés: mi erősít (pl. gyertyazárás), és mi érvényteleníti. 5) Egy mondatos figyelmeztetés: technikai elemzés, nem befektetési tanács. Csak az adatokból dolgozz, ne találj ki számokat. Az ár és az EMA-k viszonyát az ar_felette mezők alapján add meg pontosan. A felhasználót ne nevezd kezdőnek. Az atr Wilder-féle ATR14 az adott időtávon. Adatok: '+summary();
+const prompt='Tapasztalt kriptó technikai elemző vagy. Az alábbi, az appban kiszámolt BTC/USD adatok alapján írj tömör magyar elemzést, max. 300 szó, rövid listákkal és emojikkal (📈📉), markdown csillagok nélkül. A jelzes mezőt maga az app számolta ki (LONG, SHORT vagy NO TRADE, belépő, stop, TP1, TP2, kockázat:hozam). A megerositve_5p mező azt jelzi, hogy az 5 perces fordulójel már megvolt. Ezeket NE változtasd meg és ne számolj újra, csak értelmezd és indokold az adatokból. Szerkezet: 1) Összkép: a 4ó és az 1n a trendszűrő, az 1ó és a 15p a belépési időtáv; sorold fel időtávonként a szerkezetet (HH/HL, LH/LL), és mondd ki, ha a magasabb és az alacsonyabb időtáv ellentmond. 2) Szintek: a legközelebbi ellenállás és támasz számokkal, a nyitott FVG-k és a divergencia (csak a struktúratöréssel megerősített divergenciát tekintsd erős jelzésnek). 3) Jelzés: ha LONG vagy SHORT, indokold a megadott belépőt, stopot és célokat a szintekkel; ha NO TRADE, magyarázd el, miért, és mire kell várni (milyen szint, zárás vagy szerkezetváltás indítana jelzést). Ne erőltess belépőt. 4) Megerősítés és érvénytelenítés: mi erősít (pl. gyertyazárás), és mi érvényteleníti. 5) Egy mondatos figyelmeztetés: technikai elemzés, nem befektetési tanács. Csak az adatokból dolgozz, ne találj ki számokat. Az ár és az EMA-k viszonyát az ar_felette mezők alapján add meg pontosan. A felhasználót ne nevezd kezdőnek. Az atr Wilder-féle ATR14 az adott időtávon. Adatok: '+summary();
 const ms=[...new Set([model,'gemini-3.1-flash-lite','gemini-flash-latest','gemini-3-flash-preview'])];
 let st=0;try{let j,used;for(let a=0;a<ms.length;a++){const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(ms[a])+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
 st=r.status;j=await r.json();if(r.ok){used=ms[a];break}
@@ -173,6 +200,7 @@ $('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.
 (()=>{const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');x.fillStyle='#0e1520';x.fillRect(0,0,180,180);x.fillStyle='#f2a93b';x.font='bold 110px -apple-system,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('₿',90,96);$('#ic').href=c.toDataURL()})();
 $('#ch').onclick=e=>{const b=e.target.closest('button');if(b&&S.tf){S.ci=+b.dataset.i;chart()}};
 addEventListener('resize',()=>{if(S.tf)chart()});
-load();setInterval(load,30000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+$('#al').onclick=e=>{if(e.target.id=='ae')enableAl()};
+(function loop(){load().finally(()=>setTimeout(loop,S.al&&S.al.lvl>=1?15000:30000))})();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){document.title='BTC elemző';load();if(S.on&&navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>S.wl=w).catch(()=>{})}});
 </script></body></html>
