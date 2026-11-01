@@ -34,7 +34,7 @@ canvas{width:100%;height:260px;display:block;background:var(--s);border:1px soli
 .chip{width:auto;flex:1;padding:8px;background:var(--s);color:var(--m);border:1px solid var(--l);font-size:15px}
 .chip.on{background:var(--l);color:var(--t)}
 details{margin-top:18px}summary{color:var(--m)}
-input{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid var(--l);background:var(--s);color:var(--t);font-size:16px}
+input,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid var(--l);background:var(--s);color:var(--t);font-size:16px}
 details button{background:var(--l);color:var(--t)}
 </style></head><body>
 <header><div id="px" class="px">–</div><div id="ob" class="ob">Betöltés…</div><div class="tr"><i id="mk"></i></div><div id="st" class="m"></div><div id="al" style="margin-top:12px"></div><div id="sg" style="margin-top:12px"></div></header>
@@ -48,8 +48,9 @@ details button{background:var(--l);color:var(--t)}
 <details><summary>Beállítások</summary>
 <input id="gk" type="password" placeholder="Gemini API kulcs" autocomplete="off">
 <input id="gm" placeholder="Gemini modell (alap: gemini-3.1-flash-lite)">
+<select id="stl"><option value="sw">Stílus: swing (4ó+1n trend, 1ó belépő)</option><option value="nk">Stílus: napközbeni, több kereskedés (4ó irány, 15p/1ó belépő)</option></select>
 <input id="ac" inputmode="decimal" placeholder="Számla mérete USD-ben (opcionális)">
-<input id="rk" inputmode="decimal" placeholder="Kockázat ügyletenként, % (pl. 1)">
+<input id="rk" inputmode="decimal" placeholder="Kockázat ügyletenként, % (alap: 0,5, a díjakkal együtt)">
 <input id="fe" inputmode="decimal" placeholder="Jutalék oldalanként, % (Kraken Prop: 0,04)">
 <input id="sw" inputmode="decimal" placeholder="Swap díj naponta, % (Kraken Prop: 0,033)">
 <div class="m">Kraken Prop: jutalék 0,04% a pozíció értékéből nyitáskor és záráskor is, swap 0,033% naponta, 4 óránként levonva. Üresen hagyva ezek érvényesek, 0 beírásával kikapcsolható.</div>
@@ -134,8 +135,8 @@ function decide(){S.cn=false;let g=plan();
 if(g.dir&&g.e&&confirm5(g.dir,g.e)){S.cn=true;const g2=plan();S.cn=false;if(g2.d!='NO TRADE')g=g2;else g.r+=' Az 5p fordulójel megvolt, de: '+g2.r}
 if(g.cf)g.sm=micro(g.dir);S.sig=g}
 const jget=()=>{try{return JSON.parse(ls.g('jn')||'[]')}catch(e){return[]}};
-function jadd(g,m){const a=jget();a.push({t:Date.now(),m,k:g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi),d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
-const jdup=(m,k,t)=>jget().some(x=>(x.m||'enyhe')==m&&x.k==k&&Math.abs(x.t-t)<36e5);
+function jadd(g,m){const a=jget();a.push({t:Date.now(),m,k:g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi),d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
+const jdup=(m,k,t)=>jget().some(x=>(x.m||'enyhe')==m&&x.k==k&&(x.y||'sw')==sty()&&Math.abs(x.t-t)<36e5);
 function jeval(){const a=jget();if(!a.length||!S.m5)return a;a.forEach(x=>{if(x.res)return;for(const q of S.m5){if(q.t*1000<=x.t)continue;const L=x.d=='LONG',st=L?q.l<=x.stop:q.h>=x.stop,tp=L?q.h>=x.tp1:q.l<=x.tp1;if(st){x.res='STOP';x.rt=q.t*1000;break}if(tp){x.res='TP1';x.rt=q.t*1000;break}}});ls.s('jn',JSON.stringify(a));return a}
 async function replay(raws,m5){if(ls.g('wu')||!m5)return;const last=+(ls.g('rt')||0),n=m5.length-1;
 if(n<10||m5[n-1].t*1000+3e5<=last)return;
@@ -148,11 +149,11 @@ if(zc!==cache[1].e){zc=cache[1].e;S.zones=zones(S.tf,px)}
 decide();const g=S.sig;
 if(g.cf){const key=g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi);
 [['enyhe',1],['szigorú',g.sm]].forEach(([m,ok])=>{if(!ok)return;const fk=m+key;if(fired[fk]&&T*1000-fired[fk]<36e5)return;fired[fk]=T*1000;
-if(!a.some(x=>(x.m||'enyhe')==m&&x.k==key&&Math.abs(x.t-T*1000)<36e5))a.push({t:T*1000,m,k:key,rp:1,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,res:null})})}}
+if(!a.some(x=>(x.m||'enyhe')==m&&x.k==key&&(x.y||'sw')==sty()&&Math.abs(x.t-T*1000)<36e5))a.push({t:T*1000,m,k:key,rp:1,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null})})}}
 ls.s('ri',JSON.stringify({s:stp,f:a.length-n0,a:first,b:endT,at:Date.now()}));a.sort((x,y)=>x.t-y.t);ls.s('jn',JSON.stringify(a.slice(-80)));ls.s('rt',String(endT))}
 function jdiag(){if(ls.g('wu'))return;try{const r=JSON.parse(ls.g('ri')||'null');if(!r)return;const f=t=>new Date(t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});$('#jn').insertAdjacentHTML('beforeend','<div class="m" style="margin-top:6px">Utolsó visszaszámolás ('+f(r.at)+'): '+r.s+' lépés, '+r.f+' új jel'+(r.a?', időszak: '+f(r.a)+' – '+f(r.b):'')+'.</div>')}catch(e){}}
-function jr(a){const swR=q=>q.rt&&q.rk&&S.swap?Math.max(0,Math.floor(q.rt/144e5)-Math.floor(q.t/144e5))*(S.swap/6)*q.entry/q.rk:0,grp=m=>{const x=a.filter(q=>(q.m||'enyhe')==m),d=x.filter(q=>q.res),w=d.filter(q=>q.res=='TP1').length,R=d.reduce((v,q)=>v+(q.res=='TP1'?q.rr1:-1)-swR(q),0);return row(m+' mód',d.length+' lezárt, nyert '+w+', nettó '+(R>0?'+':'')+R.toFixed(1)+' R'+(x.length>d.length?', nyitott '+(x.length-d.length):''))};
-$('#jn').innerHTML=a.length?grp('enyhe')+grp('szigorú')+a.slice(-8).reverse().map(x=>row(new Date(x.t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' '+x.d+' ('+(x.m||'enyhe')+(x.rp?', visszaszámolt':'')+')',fmt(x.entry)+' → '+(x.res=='TP1'?'<span class="up">TP1</span>':x.res=='STOP'?'<span class="dn">stop</span>':'nyitott'))).join('')+'<div class="m" style="margin-top:6px">Az enyhe mód minden 5p megerősített jelzést naplóz, a szigorú csak azt, ahol a 15p szerkezetváltás is megvolt. A stop és a TP1 közül az ér el előbb. Az eredmény R-ben a jutalékot és a becsült swap díjat (a 4 órás időpontok átlépése alapján) is tartalmazza. Ezen az eszközön tárolódik.</div>':'<div class="m">Még nincs mentett jelzés.</div>';jdiag()}
+function jr(a){const swR=q=>q.rt&&q.rk&&S.swap?Math.max(0,Math.floor(q.rt/144e5)-Math.floor(q.t/144e5))*(S.swap/6)*q.entry/q.rk:0,grp=(y,m)=>{const x=a.filter(q=>(q.y||'sw')==y&&(q.m||'enyhe')==m);if(!x.length&&y!=sty())return'';const d=x.filter(q=>q.res),w=d.filter(q=>q.res=='TP1').length,R=d.reduce((v,q)=>v+(q.res=='TP1'?q.rr1:-1)-swR(q),0);return row((y=='nk'?'Napközbeni':'Swing')+', '+m+' mód',d.length+' lezárt, nyert '+w+', nettó '+(R>0?'+':'')+R.toFixed(1)+' R'+(x.length>d.length?', nyitott '+(x.length-d.length):''))};
+$('#jn').innerHTML=a.length?grp('sw','enyhe')+grp('sw','szigorú')+grp('nk','enyhe')+grp('nk','szigorú')+a.slice(-8).reverse().map(x=>row(new Date(x.t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+' '+x.d+' ('+(x.y=='nk'?'napközbeni, ':'')+(x.m||'enyhe')+(x.rp?', visszaszámolt':'')+')',fmt(x.entry)+' → '+(x.res=='TP1'?'<span class="up">TP1</span>':x.res=='STOP'?'<span class="dn">stop</span>':'nyitott'))).join('')+'<div class="m" style="margin-top:6px">Az enyhe mód minden 5p megerősített jelzést naplóz, a szigorú csak azt, ahol a 15p szerkezetváltás is megvolt. A stop és a TP1 közül az ér el előbb. Az eredmény R-ben a jutalékot és a becsült swap díjat (a 4 órás időpontok átlépése alapján) is tartalmazza. Ezen az eszközön tárolódik.</div>':'<div class="m">Még nincs mentett jelzés.</div>';jdiag()}
 async function srvJr(){const u=ls.g('wu');if(!u){jr(jeval());return}try{const r=await fetch(u);jr(await r.json());$('#jn').insertAdjacentHTML('beforeend','<div class="m">Forrás: szerver (akkor is naplóz, ha az app zárva van)</div>')}catch(e){jr(jeval())}}
 function alerts(){const g=S.sig,now=Date.now(),strict=ls.g('sm')=='1';S.fired=S.fired||{};
 const gate=(k,f)=>{if(!S.fired[k]||now-S.fired[k]>36e5){S.fired[k]=now;f()}};
@@ -169,41 +170,47 @@ gate('a:'+key+':'+lvl+(g.cf?'c':''),()=>{if(lvl==2){S.act={dir:g.dir,stop:g.stop
 S.al={lvl};
 $('#al').innerHTML=(txt?`<div class="card" style="border-color:${col}"><b class="${cl}">${txt}</b></div>`:'')+(S.on?'':'<button id="ae" style="margin-bottom:8px">🔔 Hang és értesítés bekapcsolása</button>')}
 const num=v=>+String(v||'').replace(',','.');
-function posRow(g){const A=num(ls.g('ac')),R=num(ls.g('rk'));if(!A||!R||!g.entry)return'';const risk=A*R/100,u=risk/(Math.abs(g.entry-g.stop)+(S.fee||0)*(g.entry+g.stop));return row('Pozícióméret ('+R+'% kockázat, díjakkal)',u.toFixed(4)+' BTC (≈ $'+fmt(u*g.entry)+'), max. veszteség ≈ $'+fmt(risk))}
-function feeRow(g){if(!g.entry)return'';const f=S.fee||0,sw=S.swap||0,A=num(ls.g('ac')),R=num(ls.g('rk'));let n=0;
+function posRow(g){const A=num(ls.g('ac')),R=(num(ls.g('rk'))||0.5);if(!A||!R||!g.entry)return'';const risk=A*R/100,u=risk/(Math.abs(g.entry-g.stop)+(S.fee||0)*(g.entry+g.stop));return row('Pozícióméret ('+String(R).replace('.',',')+'% kockázat, díjakkal)',u.toFixed(4)+' BTC (≈ $'+fmt(u*g.entry)+'), max. veszteség ≈ $'+fmt(risk))}
+function feeRow(g){if(!g.entry)return'';const f=S.fee||0,sw=S.swap||0,A=num(ls.g('ac')),R=(num(ls.g('rk'))||0.5);let n=0;
 if(A&&R)n=(A*R/100)/(Math.abs(g.entry-g.stop)+f*(g.entry+g.stop))*g.entry;
 return row('Jutalék (nyitás+zárás)',(f*200).toFixed(2)+'%'+(n?' ≈ $'+(n*f*2).toFixed(2):''))+row('Swap (4 óránként)',(sw/6*100).toFixed(4)+'%'+(n?' ≈ $'+(n*sw/6).toFixed(2):''))+row('R:R TP1 díj nélkül',g.rrg.toFixed(2))}
-function chk(){const T=S.tf,g=S.sig,h=T[2].s+T[3].s,d=h>0?1:h<0?-1:0,sg=v=>(v>0?'+':'')+v,ax=T[2].ax.adx;
-const L=[[Math.abs(h)>=3,'4ó+1n trend egyezik ('+sg(h)+'/6, kell legalább ±3)'],
+function chk(){const T=S.tf,g=S.sig,nk=S.style=='nk',h=T[2].s+T[3].s,d=nk?(T[2].s>0?1:T[2].s<0?-1:0):(h>0?1:h<0?-1:0),sg=v=>(v>0?'+':'')+v,ax=(nk?T[1]:T[2]).ax.adx,am=nk?18:20;
+const L=[nk?[Math.abs(T[2].s)>=2,'4ó trend egyértelmű ('+sg(T[2].s)+'/3, kell legalább ±2)']:[Math.abs(h)>=3,'4ó+1n trend egyezik ('+sg(h)+'/6, kell legalább ±3)'],
+...(nk?[[d==0||T[3].s*d>-2,'A napi trend nem erősen ellentétes ('+sg(T[3].s)+')']]:[]),
 [d==0||T[2].st.t!=(d>0?'csökkenő':'emelkedő'),'4ó szerkezete nem ellentétes ('+T[2].st.t+')'],
-[d!=0&&T[1].s*d>=1,'1ó erősíti az irányt ('+sg(T[1].s)+')'],
+[d!=0&&T[1].s*d>=(nk?0:1),'1ó '+(nk?'nem ellentétes':'erősíti az irányt')+' ('+sg(T[1].s)+')'],
 [d!=0&&T[0].s*d>-2,'15p nem erősen ellentétes ('+sg(T[0].s)+')'],
-[ax!=null&&ax>=20,'4ó ADX legalább 20 ('+(ax==null?'–':ax.toFixed(0))+')'],
+[ax!=null&&ax>=am,(nk?'1ó':'4ó')+' ADX legalább '+am+' ('+(ax==null?'–':ax.toFixed(0))+')'],
 [g.da!=null&&g.da<=2,'Zóna legfeljebb 2 ATR-re ('+(g.da==null?'nincs jelölt':g.da.toFixed(1)+'× ATR')+')'],
 [!!g.entry&&g.rr1>=1.5,'Kockázat:hozam díjakkal legalább 1,5 ('+(g.rr1?g.rr1.toFixed(1):'–')+')'],
 [!!g.cf,'5p fordulójel megvolt'],[!!g.sm,'15p szerkezetváltás megvolt (szigorú módhoz)']];
 return'<details style="margin-top:8px"><summary class="m">Szűrők: '+L.filter(x=>x[0]).length+'/'+L.length+' teljesül</summary>'+L.map(x=>'<div class="'+(x[0]?'up':'dn')+'" style="font-size:14px">'+(x[0]?'✅ ':'❌ ')+x[1]+'</div>').join('')+'</details>'}
 function conf(){const T=S.tf,a=T[2].s+T[3].s,b=T[0].s+T[1].s;return Math.abs(a)>=2&&Math.abs(b)>=2&&a*b<0?'⚠ Ellentmondás: a magasabb idősík (4ó+1n) '+(a>0?'emelkedő':'csökkenő')+', az alacsonyabb (15p+1ó) '+(b>0?'emelkedő':'csökkenő')+' jelzést ad.':''}
-function plan(){const T=S.tf,p=S.price,Z=S.zones,A=T[1].atr,h=T[2].s+T[3].s,no=(r,x)=>({d:'NO TRADE',r,...x});
-const dir=h>=3?1:h<=-3?-1:0;
-if(!dir)return no('A 4ó és az 1n trendje nem elég egyértelmű (összesen '+(h>0?'+':'')+h+'/6, a belépőhöz legalább ±3 kell).');
-if(T[2].st.t==(dir>0?'csökkenő':'emelkedő'))return no('A 4ó szerkezete ellentmond a magasabb idősík irányának.');
-if(T[1].s*dir<1)return no('Az 1ó nem erősíti a 4ó/1n irányát, nincs belépési időtávú megerősítés.');
+function plan(){const T=S.tf,p=S.price,Z=S.zones,nk=S.style=='nk',no=(r,x)=>({d:'NO TRADE',r,...x}),h=T[2].s+T[3].s,sg=v=>(v>0?'+':'')+v;
+const dir=nk?(T[2].s>=2?1:T[2].s<=-2?-1:0):(h>=3?1:h<=-3?-1:0);
+if(!dir)return no(nk?'A 4ó trend nem elég egyértelmű ('+sg(T[2].s)+'/3, a belépőhöz legalább ±2 kell).':'A 4ó és az 1n trendje nem elég egyértelmű (összesen '+sg(h)+'/6, a belépőhöz legalább ±3 kell).');
+if(nk&&T[3].s*dir<=-2)return no('A napi trend erősen ellentétes, ellene napközben sem javaslok belépőt.');
+if(T[2].st.t==(dir>0?'csökkenő':'emelkedő'))return no('A 4ó szerkezete ellentmond az iránynak.');
+if(T[1].s*dir<(nk?0:1))return no(nk?'Az 1ó ellentétes az iránnyal.':'Az 1ó nem erősíti a 4ó/1n irányát, nincs belépési időtávú megerősítés.');
 if(T[0].s*dir<=-2)return no('A 15p erősen ellentétes irányba mutat, várd meg a fordulót.');
-if(T[2].ax.adx!=null&&T[2].ax.adx<20)return no('A 4ó ADX értéke '+T[2].ax.adx.toFixed(0)+' (20 alatt): oldalazó piac, a trendkövető belépők gyengék.');
+const ax=(nk?T[1]:T[2]).ax.adx,am=nk?18:20;
+if(ax!=null&&ax<am)return no('A '+(nk?'1ó':'4ó')+' ADX értéke '+ax.toFixed(0)+' ('+am+' alatt): oldalazó piac, a trendkövető belépők gyengék.');
+const A=nk?1.5*T[0].atr:T[1].atr;
 const e=dir>0?Z.filter(z=>z.lo<p).sort((a,b)=>Math.min(p,b.hi)-Math.min(p,a.hi))[0]:Z.filter(z=>z.hi>p).sort((a,b)=>Math.max(p,a.lo)-Math.max(p,b.lo))[0],nm=dir>0?'támasz':'ellenállás';
 if(!e)return no('Nincs közeli '+nm+' zóna a belépéshez.');
 const edge=dir>0?Math.min(p,e.hi):Math.max(p,e.lo),dist=Math.abs(p-edge),entry=S.cn?p:edge;
 if(dist>2*A)return no('A '+nm+' zóna ('+fmt(e.lo)+'–'+fmt(e.hi)+') túl messze van ('+(dist/A).toFixed(1)+'× ATR), várj visszahúzódásra.',{dir,e,da:dist/A});
 const stop=dir>0?Math.min(e.lo-.5*A,entry-A):Math.max(e.hi+.5*A,entry+A),risk=Math.abs(entry-stop);
 const O=(dir>0?Z.filter(z=>z.lo>entry).sort((a,b)=>a.lo-b.lo):Z.filter(z=>z.hi<entry).sort((a,b)=>b.hi-a.hi)).map(z=>dir>0?z.lo:z.hi);
-const tp1=O[0]??entry+dir*1.5*risk,tp2=O[1]??tp1+dir*1.5*risk,f=S.fee||0,rk=risk+f*(entry+stop),rr1=(Math.abs(tp1-entry)-f*(entry+tp1))/rk,rr2=(Math.abs(tp2-entry)-f*(entry+tp2))/rk,rrg=Math.abs(tp1-entry)/risk;
-if(rr1<1.5)return no('A következő '+(dir>0?'ellenállás':'támasz')+' ('+fmt(tp1)+') túl közel van, a kockázat:hozam díjakkal csak '+rr1.toFixed(1)+', legalább 1,5 kell.');
-return{d:dir>0?'LONG':'SHORT',dir,e,da:dist/A,rk,rrg,entry,stop,tp1,tp2,rr1,rr2,mod:S.cn?'megerősítés után, piaci ár':dist<.25*A?'piaci ár':'visszateszt',cf:!!S.cn,r:'A 4ó és az 1n '+(dir>0?'emelkedő':'csökkenő')+', az 1ó erősít. Belépő a '+nm+' zónánál ('+fmt(e.lo)+'–'+fmt(e.hi)+'), a stop a zóna túloldalán (legalább 1 ATR), a célok a következő zónáknál.'}}
+let tp1=O[0]??entry+dir*1.5*risk;const cap=.6*T[3].atr;
+if(nk&&cap>0&&Math.abs(tp1-entry)>cap)tp1=entry+dir*cap;
+const tp2=O.find(x=>Math.abs(x-entry)>Math.abs(tp1-entry)+1)??tp1+dir*1.5*risk,f=S.fee||0,rk=risk+f*(entry+stop),rr1=(Math.abs(tp1-entry)-f*(entry+tp1))/rk,rr2=(Math.abs(tp2-entry)-f*(entry+tp2))/rk,rrg=Math.abs(tp1-entry)/risk;
+if(rr1<1.5)return no('A '+(nk?'napon belül elérhető cél':'következő '+(dir>0?'ellenállás':'támasz'))+' ('+fmt(tp1)+') túl közel van, a kockázat:hozam díjakkal csak '+rr1.toFixed(1)+', legalább 1,5 kell.');
+return{d:dir>0?'LONG':'SHORT',dir,e,da:dist/A,rk,rrg,entry,stop,tp1,tp2,rr1,rr2,mod:S.cn?'megerősítés után, piaci ár':dist<.25*A?'piaci ár':'visszateszt',cf:!!S.cn,r:(nk?'A 4ó '+(dir>0?'emelkedő':'csökkenő')+', a napi nem ellentétes.':'A 4ó és az 1n '+(dir>0?'emelkedő':'csökkenő')+', az 1ó erősít.')+' Belépő a '+nm+' zónánál ('+fmt(e.lo)+'–'+fmt(e.hi)+'), a stop a zóna túloldalán, a célok a következő zónáknál'+(nk?' (TP1 legfeljebb a napi átlagos mozgás 60%-ánál)':'')+'.'}}
 function render(){const p=S.price;$('#px').textContent='$'+fmt(p);
 const tw=S.tf.reduce((a,t)=>a+t.w,0),o=S.tf.reduce((a,t)=>a+t.w*t.s/3,0)/tw*100;S.o=o;
 const[lb,cl]=lab(o);$('#ob').textContent='Összkép: '+lb+' ('+(o>0?'+':'')+Math.round(o)+')';$('#ob').className='ob '+cl;$('#mk').style.left=(o+100)/2+'%';
-const g=S.sig,cf=conf();$('#sg').innerHTML=`<div class="card"><div class="h"><b>Jelzés</b><b class="${g.d=='LONG'?'up':g.d=='SHORT'?'dn':'nu'}">${g.d}${g.entry&&!g.cf?' (megerősítésre vár)':''}</b></div>`+(g.entry?row('Belépő',fmt(g.entry)+' ('+g.mod+')')+row('Stop',fmt(g.stop))+row('TP1',fmt(g.tp1)+' (R:R '+g.rr1.toFixed(1)+')')+row('TP2',fmt(g.tp2)+' (R:R '+g.rr2.toFixed(1)+')')+(g.cf?row('15p szerkezetváltás',g.sm?'megvan':'még nincs'):'')+posRow(g)+feeRow(g):'')+`<div class="m" style="margin-top:6px">${g.r}</div>${chk()}${cf?`<div class="nu" style="margin-top:6px">${cf}</div>`:''}</div>`;
+const g=S.sig,cf=conf();$('#sg').innerHTML=`<div class="card"><div class="h"><b>Jelzés (${S.style=='nk'?'napközbeni':'swing'})</b><b class="${g.d=='LONG'?'up':g.d=='SHORT'?'dn':'nu'}">${g.d}${g.entry&&!g.cf?' (megerősítésre vár)':''}</b></div>`+(g.entry?row('Belépő',fmt(g.entry)+' ('+g.mod+')')+row('Stop',fmt(g.stop))+row('TP1',fmt(g.tp1)+' (R:R '+g.rr1.toFixed(1)+')')+row('TP2',fmt(g.tp2)+' (R:R '+g.rr2.toFixed(1)+')')+(g.cf?row('15p szerkezetváltás',g.sm?'megvan':'még nincs'):'')+posRow(g)+feeRow(g):'')+`<div class="m" style="margin-top:6px">${g.r}</div>${chk()}${cf?`<div class="nu" style="margin-top:6px">${cf}</div>`:''}</div>`;
 $('#tf').innerHTML=S.tf.map(card).join('');chart();
 const Z=S.zones,u=Z.filter(z=>z.mid>p).sort((a,b)=>a.mid-b.mid).slice(0,3).reverse(),d=Z.filter(z=>z.mid<=p).sort((a,b)=>b.mid-a.mid).slice(0,3);
 const st=s=>s>=6?'erős':s>=3?'közepes':'gyenge';
@@ -225,22 +232,23 @@ x.restore();
 x.setLineDash([2,3]);x.strokeStyle='#e8edf5';x.beginPath();x.moveTo(0,y(p));x.lineTo(W-pr,y(p));x.stroke();x.setLineDash([]);
 x.fillStyle='#8a98b0';x.font='11px -apple-system,sans-serif';[hi,(hi+lo)/2,lo].forEach(v=>x.fillText(fmt(v),W-pr+4,y(v)+4));
 x.fillStyle='#e8edf5';x.fillText(fmt(p),W-pr+4,y(p)+4)}
+const sty=()=>ls.g('st')=='nk'?'nk':'sw';
 const feeOf=(k,d)=>{const v=ls.g(k);return v===null||String(v).trim()===''?d/100:num(v)/100};
-async function load(){try{S.fee=feeOf('fe',.04);S.swap=feeOf('sw',.033);$('#st').textContent='Frissítés…';
+async function load(){try{S.style=sty();S.fee=feeOf('fe',.04);S.swap=feeOf('sw',.033);$('#st').textContent='Frissítés…';
 const[raws,px,m5]=await Promise.all([Promise.all(TF.map(t=>get(t[0]))),tick().catch(()=>null),get(5).catch(()=>null)]);await replay(raws,m5);S.m5=m5;S.price=px||raws[0].at(-1).c;
 S.tf=TF.map((t,i)=>({name:t[1],w:t[2],zw:t[3],...analyze(raws[i])}));S.zones=zones(S.tf,S.price);decide();render();alerts();srvJr();
 $('#st').textContent='Frissítve: '+new Date().toLocaleTimeString('hu-HU')}
 catch(e){$('#st').textContent='Hiba: '+e.message+'. Ellenőrizd a netkapcsolatot, majd húzd le a frissítéshez.'}}
 const atr=cd=>{if(cd.length<16)return 0;const tr=i=>Math.max(cd[i].h-cd[i].l,Math.abs(cd[i].h-cd[i-1].c),Math.abs(cd[i].l-cd[i-1].c));let a=0;for(let i=1;i<=14;i++)a+=tr(i);a/=14;for(let i=15;i<cd.length;i++)a=(a*13+tr(i))/14;return a};
 const sgJ=()=>{const g=S.sig,r=Math.round;return{dontes:g.d,megerositve_5p:!!g.cf,szerkezetvaltas_15p:!!g.sm,indok:g.r,...(g.entry?{belepo:r(g.entry),stop:r(g.stop),tp1:r(g.tp1),tp2:r(g.tp2),rr_tp1:+g.rr1.toFixed(2),rr_tp2:+g.rr2.toFixed(2)}:{})}};
-function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),jelzes:sgJ(),idotavok:S.tf.map(t=>({tf:t.name,pont_3ból:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),szerkezet:{trend:t.st.t,csucsok:t.st.H,melypontok:t.st.L,utolso_ket_csucs:[r(t.st.h1),r(t.st.h2)],utolso_ket_melypont:[r(t.st.l1),r(t.st.l2)]},adx:t.ax.adx&&r(t.ax.adx),plusDI:t.ax.pdi&&r(t.ax.pdi),minusDI:t.ax.mdi&&r(t.ax.mdi),atr:r(t.atr),elmult_20_gyertya_csucs:r(Math.max(...t.cd.slice(-20).map(q=>q.h))),elmult_20_gyertya_melypont:r(Math.min(...t.cd.slice(-20).map(q=>q.l))),utolso_zart_gyertya:{max:r(t.cd.at(-1).h),min:r(t.cd.at(-1).l),zaro:r(t.cd.at(-1).c)},ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),ar_felette:{ema20:S.price>t.e20,ema50:S.price>t.e50,ema200:S.price>t.e200},divergencia:t.div.map(d=>({tipus:d.t,strukturatores_megerositve_frissen:!!d.fresh,regi_megerosites:d.ok&&!d.fresh})),fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
+function summary(){const r=Math.round;return JSON.stringify({ar:r(S.price),osszkep_pont:r(S.o),stilus:S.style=='nk'?'napkozbeni':'swing',jelzes:sgJ(),idotavok:S.tf.map(t=>({tf:t.name,pont_3ból:t.s,rsi:r(t.rsi),stochK:t.k&&r(t.k),stochD:t.d&&r(t.d),macdHiszt_pozitiv:t.h>0,macdHiszt_no:t.h>t.hp,volumen_atlag_szoros:+t.vr.toFixed(2),szerkezet:{trend:t.st.t,csucsok:t.st.H,melypontok:t.st.L,utolso_ket_csucs:[r(t.st.h1),r(t.st.h2)],utolso_ket_melypont:[r(t.st.l1),r(t.st.l2)]},adx:t.ax.adx&&r(t.ax.adx),plusDI:t.ax.pdi&&r(t.ax.pdi),minusDI:t.ax.mdi&&r(t.ax.mdi),atr:r(t.atr),elmult_20_gyertya_csucs:r(Math.max(...t.cd.slice(-20).map(q=>q.h))),elmult_20_gyertya_melypont:r(Math.min(...t.cd.slice(-20).map(q=>q.l))),utolso_zart_gyertya:{max:r(t.cd.at(-1).h),min:r(t.cd.at(-1).l),zaro:r(t.cd.at(-1).c)},ema20:r(t.e20),ema50:r(t.e50),ema200:r(t.e200),ar_felette:{ema20:S.price>t.e20,ema50:S.price>t.e50,ema200:S.price>t.e200},divergencia:t.div.map(d=>({tipus:d.t,strukturatores_megerositve_frissen:!!d.fresh,regi_megerosites:d.ok&&!d.fresh})),fvg:near(t.fvg,S.price).map(g=>({t:g.t,lo:r(g.lo),hi:r(g.hi)}))})),
 ellenallas:S.zones.filter(z=>z.mid>S.price).sort((a,b)=>a.mid-b.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:+z.s.toFixed(1),idotavok:z.tfs,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)})),
 tamasz:S.zones.filter(z=>z.mid<=S.price).sort((a,b)=>b.mid-a.mid).slice(0,3).map(z=>({tol:r(z.lo),ig:r(z.hi),erosseg_pont:+z.s.toFixed(1),idotavok:z.tfs,tavolsag_szazalek:+((z.mid-S.price)/S.price*100).toFixed(2)}))})}
 async function ai(){const key=ls.g('gk'),model=ls.g('gm')||'gemini-3.1-flash-lite',o=$('#ao');o.hidden=false;
 if(!key){o.textContent='Add meg a Gemini API kulcsot a Beállításokban.';return}
 if(!S.tf){o.textContent='Várj, amíg betöltenek az adatok.';return}
 $('#ab').disabled=true;o.textContent='Elemzés készül…';
-const prompt='Tapasztalt kriptó technikai elemző vagy. Az alábbi, az appban kiszámolt BTC/USD adatok alapján írj tömör magyar elemzést, max. 300 szó, rövid listákkal és emojikkal (📈📉), markdown csillagok nélkül. A jelzes mezőt maga az app számolta ki (LONG, SHORT vagy NO TRADE, belépő, stop, TP1, TP2, kockázat:hozam). A megerositve_5p mező azt jelzi, hogy az 5 perces fordulójel már megvolt. Ezeket NE változtasd meg és ne számolj újra, csak értelmezd és indokold az adatokból. Szerkezet: 1) Összkép: a 4ó és az 1n a trendszűrő, az 1ó és a 15p a belépési időtáv; sorold fel időtávonként a szerkezetet (HH/HL, LH/LL), és mondd ki, ha a magasabb és az alacsonyabb időtáv ellentmond. 2) Szintek: a legközelebbi ellenállás és támasz számokkal, a nyitott FVG-k és a divergencia (csak a struktúratöréssel megerősített divergenciát tekintsd erős jelzésnek). 3) Jelzés: ha LONG vagy SHORT, indokold a megadott belépőt, stopot és célokat a szintekkel; ha NO TRADE, magyarázd el, miért, és mire kell várni (milyen szint, zárás vagy szerkezetváltás indítana jelzést). Ne erőltess belépőt. 4) Megerősítés és érvénytelenítés: mi erősít (pl. gyertyazárás), és mi érvényteleníti. 5) Egy mondatos figyelmeztetés: technikai elemzés, nem befektetési tanács. Csak az adatokból dolgozz, ne találj ki számokat. Az ár és az EMA-k viszonyát az ar_felette mezők alapján add meg pontosan. A felhasználót ne nevezd kezdőnek. Az atr Wilder-féle ATR14 az adott időtávon. A kockázat:hozam értékek már tartalmazzák a tranzakciós jutalékot (Kraken Prop), tartásnál 4 óránként swap díj is levonódik, ezt rövid és hosszabb tartásnál említsd. A zónáknál az idotavok mező mutatja, mely időtávokon van ott szint (több időtáv egybeesése erősebb zóna), az erosseg_pont az érintések, az időtáv és a frissesség alapján számolt erősség. A divergenciát csak a strukturatores_megerositve_frissen igaz értéke esetén tekintsd erős jelzésnek. Adatok: '+summary();
+const prompt='Tapasztalt kriptó technikai elemző vagy. Az alábbi, az appban kiszámolt BTC/USD adatok alapján írj tömör magyar elemzést, max. 300 szó, rövid listákkal és emojikkal (📈📉), markdown csillagok nélkül. A jelzes mezőt maga az app számolta ki (LONG, SHORT vagy NO TRADE, belépő, stop, TP1, TP2, kockázat:hozam). A megerositve_5p mező azt jelzi, hogy az 5 perces fordulójel már megvolt. Ezeket NE változtasd meg és ne számolj újra, csak értelmezd és indokold az adatokból. Szerkezet: 1) Összkép: a 4ó és az 1n a trendszűrő, az 1ó és a 15p a belépési időtáv; sorold fel időtávonként a szerkezetet (HH/HL, LH/LL), és mondd ki, ha a magasabb és az alacsonyabb időtáv ellentmond. 2) Szintek: a legközelebbi ellenállás és támasz számokkal, a nyitott FVG-k és a divergencia (csak a struktúratöréssel megerősített divergenciát tekintsd erős jelzésnek). 3) Jelzés: ha LONG vagy SHORT, indokold a megadott belépőt, stopot és célokat a szintekkel; ha NO TRADE, magyarázd el, miért, és mire kell várni (milyen szint, zárás vagy szerkezetváltás indítana jelzést). Ne erőltess belépőt. 4) Megerősítés és érvénytelenítés: mi erősít (pl. gyertyazárás), és mi érvényteleníti. 5) Egy mondatos figyelmeztetés: technikai elemzés, nem befektetési tanács. Csak az adatokból dolgozz, ne találj ki számokat. Az ár és az EMA-k viszonyát az ar_felette mezők alapján add meg pontosan. A felhasználót ne nevezd kezdőnek. Az atr Wilder-féle ATR14 az adott időtávon. A kockázat:hozam értékek már tartalmazzák a tranzakciós jutalékot (Kraken Prop), tartásnál 4 óránként swap díj is levonódik, ezt rövid és hosszabb tartásnál említsd. A stilus mező: swing (hosszabb tartás, 4ó+1n trendszűrő) vagy napkozbeni (aznap zárt, több kereskedés, a 4ó dönt, a napi csak tilt); a magyarázatot ehhez igazítsd. A zónáknál az idotavok mező mutatja, mely időtávokon van ott szint (több időtáv egybeesése erősebb zóna), az erosseg_pont az érintések, az időtáv és a frissesség alapján számolt erősség. A divergenciát csak a strukturatores_megerositve_frissen igaz értéke esetén tekintsd erős jelzésnek. Adatok: '+summary();
 const ms=[...new Set([model,'gemini-3.1-flash-lite','gemini-flash-latest','gemini-3-flash-preview'])];
 let st=0;try{let j,used;for(let a=0;a<ms.length;a++){const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(ms[a])+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
 st=r.status;j=await r.json();if(r.ok){used=ms[a];break}
@@ -250,8 +258,8 @@ o.textContent=(j.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'Üre
 catch(e){o.textContent='Hiba: '+e.message+([400,401,403,404].includes(st)?' Ellenőrizd a kulcsot és a modell nevét a Beállításokban.':' Próbáld újra egy perc múlva.')}
 $('#ab').disabled=false}
 $('#ab').onclick=ai;
-$('#gk').value=ls.g('gk')||'';$('#gm').value=ls.g('gm')||'';$('#sm').checked=ls.g('sm')=='1';$('#wu').value=ls.g('wu')||'';$('#ac').value=ls.g('ac')||'';$('#fe').value=ls.g('fe')??'0.04';$('#sw').value=ls.g('sw')??'0.033';$('#rk').value=ls.g('rk')||'';
-$('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.trim());ls.s('sm',$('#sm').checked?'1':'0');ls.s('wu',$('#wu').value.trim());ls.s('ac',$('#ac').value.trim());ls.s('fe',$('#fe').value.trim());ls.s('sw',$('#sw').value.trim());ls.s('rk',$('#rk').value.trim());$('#sv').textContent='Mentve'; setTimeout(()=>$('#sv').textContent='Mentés',1500)};
+$('#gk').value=ls.g('gk')||'';$('#gm').value=ls.g('gm')||'';$('#sm').checked=ls.g('sm')=='1';$('#stl').value=sty();$('#wu').value=ls.g('wu')||'';$('#ac').value=ls.g('ac')||'';$('#fe').value=ls.g('fe')??'0.04';$('#sw').value=ls.g('sw')??'0.033';$('#rk').value=ls.g('rk')??'0.5';
+$('#sv').onclick=()=>{ls.s('gk',$('#gk').value.trim());ls.s('gm',$('#gm').value.trim());const os=sty();ls.s('st',$('#stl').value);if(sty()!==os)ls.s('rt','0');ls.s('sm',$('#sm').checked?'1':'0');ls.s('wu',$('#wu').value.trim());ls.s('ac',$('#ac').value.trim());ls.s('fe',$('#fe').value.trim());ls.s('sw',$('#sw').value.trim());ls.s('rk',$('#rk').value.trim());$('#sv').textContent='Mentve'; setTimeout(()=>$('#sv').textContent='Mentés',1500)};
 (()=>{const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');x.fillStyle='#0e1520';x.fillRect(0,0,180,180);x.fillStyle='#f2a93b';x.font='bold 110px -apple-system,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('₿',90,96);$('#ic').href=c.toDataURL()})();
 $('#ch').onclick=e=>{const b=e.target.closest('button');if(b&&S.tf){S.ci=+b.dataset.i;chart()}};
 addEventListener('resize',()=>{if(S.tf)chart()});
