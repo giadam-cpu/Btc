@@ -135,9 +135,13 @@ function decide(){S.cn=false;let g=plan();
 if(g.dir&&g.e&&confirm5(g.dir,g.e)){S.cn=true;const g2=plan();S.cn=false;if(g2.d!='NO TRADE')g=g2;else g.r+=' Az 5p fordulójel megvolt, de: '+g2.r}
 if(g.cf)g.sm=micro(g.dir);S.sig=g}
 const jget=()=>{try{return JSON.parse(ls.g('jn')||'[]')}catch(e){return[]}};
-function jadd(g,m){const a=jget();a.push({t:Date.now(),m,k:g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi),d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
-const jdup=(m,k,t)=>jget().some(x=>(x.m||'enyhe')==m&&x.k==k&&(x.y||'sw')==sty()&&Math.abs(x.t-t)<36e5);
-function jeval(){const a=jget();if(!a.length||!S.m5)return a;a.forEach(x=>{if(x.res)return;for(const q of S.m5){if(q.t*1000<=x.t)continue;const L=x.d=='LONG',st=L?q.l<=x.stop:q.h>=x.stop,tp=L?q.h>=x.tp1:q.l<=x.tp1;if(st){x.res='STOP';x.rt=q.t*1000;break}if(tp){x.res='TP1';x.rt=q.t*1000;break}}});ls.s('jn',JSON.stringify(a));return a}
+function jadd(g,m){const a=jget();a.push({t:Date.now(),m,k:g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi),zm:g.e.mid,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null});ls.s('jn',JSON.stringify(a.slice(-80)))}
+const zmOf=x=>{if(x.zm)return x.zm;const r=String(x.k||'').split(':')[1];if(!r)return 0;const b=r.split('-');return(+b[0]+ +b[1])/2};
+const dupSetup=(a,y,m,dir,zm,t)=>zm>0&&a.some(x=>(x.y||'sw')==y&&(x.m||'enyhe')==m&&(x.d=='LONG'?1:-1)==dir&&Math.abs(zmOf(x)-zm)/zm<=.003&&(!x.res||t-(x.rt||x.t)<72e5));
+function jres(x,c){for(const q of c){if(q.t*1000<x.t)continue;const L=x.d=='LONG',st=L?q.l<=x.stop:q.h>=x.stop,tp=L?q.h>=x.tp1:q.l<=x.tp1;if(st){x.res='STOP';x.rt=q.t*1000;return}if(tp){x.res='TP1';x.rt=q.t*1000;return}}}
+function jeval(){const a=jget();if(!a.length)return a;if(S.m5)a.forEach(x=>{if(!x.res)jres(x,S.m5)});
+a.sort((x,y)=>x.t-y.t);const k=[];a.forEach(x=>{if(!dupSetup(k,x.y||'sw',x.m||'enyhe',x.d=='LONG'?1:-1,zmOf(x),x.t))k.push(x)});
+ls.s('jn',JSON.stringify(k));return k}
 async function replay(raws,m5){if(ls.g('wu')||!m5)return;const last=+(ls.g('rt')||0),n=m5.length-1;
 if(n<10||m5[n-1].t*1000+3e5<=last)return;
 $('#st').textContent='Napló visszaszámolása…';await new Promise(r=>setTimeout(r,30));
@@ -149,7 +153,7 @@ if(zc!==cache[1].e){zc=cache[1].e;S.zones=zones(S.tf,px)}
 decide();const g=S.sig;
 if(g.cf){const key=g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi);
 [['enyhe',1],['szigorú',g.sm]].forEach(([m,ok])=>{if(!ok)return;const fk=m+key;if(fired[fk]&&T*1000-fired[fk]<36e5)return;fired[fk]=T*1000;
-if(!a.some(x=>(x.m||'enyhe')==m&&x.k==key&&(x.y||'sw')==sty()&&Math.abs(x.t-T*1000)<36e5))a.push({t:T*1000,m,k:key,rp:1,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null})})}}
+if(!dupSetup(a,sty(),m,g.dir,g.e.mid,T*1000)){const x={t:T*1000,m,k:key,zm:g.e.mid,rp:1,d:g.d,entry:g.entry,stop:g.stop,tp1:g.tp1,tp2:g.tp2,rr1:g.rr1,rk:g.rk,y:sty(),res:null};jres(x,m5.slice(k+1));a.push(x)}})}}
 ls.s('ri',JSON.stringify({s:stp,f:a.length-n0,a:first,b:endT,at:Date.now()}));a.sort((x,y)=>x.t-y.t);ls.s('jn',JSON.stringify(a.slice(-80)));ls.s('rt',String(endT))}
 function jdiag(){if(ls.g('wu'))return;try{const r=JSON.parse(ls.g('ri')||'null');if(!r)return;const f=t=>new Date(t).toLocaleString('hu-HU',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});$('#jn').insertAdjacentHTML('beforeend','<div class="m" style="margin-top:6px">Utolsó visszaszámolás ('+f(r.at)+'): '+r.s+' lépés, '+r.f+' új jel'+(r.a?', időszak: '+f(r.a)+' – '+f(r.b):'')+'.</div>')}catch(e){}}
 function jr(a){const swR=q=>q.rt&&q.rk&&S.swap?Math.max(0,Math.floor(q.rt/144e5)-Math.floor(q.t/144e5))*(S.swap/6)*q.entry/q.rk:0,grp=(y,m)=>{const x=a.filter(q=>(q.y||'sw')==y&&(q.m||'enyhe')==m);if(!x.length&&y!=sty())return'';const d=x.filter(q=>q.res),w=d.filter(q=>q.res=='TP1').length,R=d.reduce((v,q)=>v+(q.res=='TP1'?q.rr1:-1)-swR(q),0);return row((y=='nk'?'Napközbeni':'Swing')+', '+m+' mód',d.length+' lezárt, nyert '+w+', nettó '+(R>0?'+':'')+R.toFixed(1)+' R'+(x.length>d.length?', nyitott '+(x.length-d.length):''))};
@@ -158,7 +162,7 @@ async function srvJr(){const u=ls.g('wu');if(!u){jr(jeval());return}try{const r=
 function alerts(){const g=S.sig,now=Date.now(),strict=ls.g('sm')=='1';S.fired=S.fired||{};
 const gate=(k,f)=>{if(!S.fired[k]||now-S.fired[k]>36e5){S.fired[k]=now;f()}};
 const key=g.dir&&g.e?g.dir+':'+Math.round(g.e.lo)+'-'+Math.round(g.e.hi):'';
-if(g.cf&&!ls.g('wu')){gate('je:'+key,()=>{if(!jdup('enyhe',key,now))jadd(g,'enyhe')});if(g.sm)gate('js:'+key,()=>{if(!jdup('szigorú',key,now))jadd(g,'szigorú')})}
+if(g.cf&&!ls.g('wu')){gate('je:'+key,()=>{if(!dupSetup(jget(),sty(),'enyhe',g.dir,g.e.mid,now))jadd(g,'enyhe')});if(g.sm)gate('js:'+key,()=>{if(!dupSetup(jget(),sty(),'szigorú',g.dir,g.e.mid,now))jadd(g,'szigorú')})}
 const ok=g.cf&&(!strict||g.sm),lvl=ok?2:(g.dir&&g.e&&(g.cf||g.da<=3)?1:0);
 if(S.act&&(S.act.dir>0?S.price>=S.act.tp1:S.price<=S.act.tp1))S.act=null;
 if(S.act&&(S.act.dir>0?S.price<=S.act.stop:S.price>=S.act.stop)){fire('❌ ÉRVÉNYTELEN','Az ár elérte a stopot ('+fmt(S.act.stop)+').',1);S.act=null}
